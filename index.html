@@ -396,7 +396,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="side-group">Sistema</div>
       <button data-view="config">Configuración</button>
     </nav>
-    <div class="side-foot">Control de Cremaciones · v9.34</div>
+    <div class="side-foot">Control de Cremaciones · v9.35</div>
   </aside>
   <div class="sidebar-scrim" id="sideScrim" onclick="toggleSide(false)"></div>
   <div class="mainarea">
@@ -749,7 +749,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
         <button class="btn ghost" onclick="exportJSON()">⬇ Exportar respaldo (.json)</button>
         <label class="btn ghost" style="cursor:pointer">⬆ Importar respaldo<input type="file" accept=".json" style="display:none" onchange="importJSON(event)"></label>
         <button class="btn ghost" style="border-color:var(--danger);color:var(--danger)" onclick="wipeCremaciones()">Borrar solo cremaciones</button>
-        <button class="btn ghost" style="border-color:var(--danger);color:var(--danger)" onclick="wipe()">Borrar todos los datos</button>
+        <button class="btn ghost" style="border-color:var(--danger);color:var(--danger)" onclick="wipe()">Borrar todos los datos</button> <button class="btn ghost" style="border-color:#B07A00;color:#B07A00" onclick="reiniciarCero()">🧹 Reiniciar a cero (nuevo ambiente)</button>
       </div>
     </div></div>
   </section>
@@ -3350,7 +3350,7 @@ function renderGovTar(){var tb=document.getElementById('tbGovTar');if(!tb)return
 function editGovTarifa(i){_govEdit=i;renderGovTar();}
 function saveGovTarifa(i){var d=dmy2iso(document.getElementById('egD').value),h=dmy2iso(document.getElementById('egH').value),m=Number(document.getElementById('egM').value);if(!(m>0)){toast('Indique un monto USD válido');return;}if(d&&h&&h<d){toast('«Hasta» no puede ser anterior a «Desde»');return;}cfg.govTarifas[i]={desde:d,hasta:h,monto:n2(m)};save(K.cfg,cfg);_govEdit=-1;renderGovTar();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();toast('Vigencia actualizada');}
 function addGovTarifa(){var d=dmy2iso(document.getElementById('govDesde').value),h=dmy2iso(document.getElementById('govHasta').value),m=Number(document.getElementById('govMonto').value);if(!(m>0)){toast('Indique un monto USD válido');return;}if(d&&h&&h<d){toast('«Hasta» no puede ser anterior a «Desde»');return;}cfg.govTarifas=cfg.govTarifas||[];cfg.govTarifas.push({desde:d,hasta:h,monto:n2(m)});save(K.cfg,cfg);document.getElementById('govMonto').value='';renderGovTar();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();toast('Vigencia agregada');}
-function delGovTarifa(i){if(!confirm('¿Eliminar esta vigencia?'))return;cfg.govTarifas.splice(i,1);if(!cfg.govTarifas.length)cfg.govTarifas=[{desde:'',hasta:'',monto:410}];save(K.cfg,cfg);_govEdit=-1;renderGovTar();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();}
+function delGovTarifa(i){if(!confirm('¿Eliminar esta vigencia?'))return;cfg.govTarifas.splice(i,1);save(K.cfg,cfg);_govEdit=-1;renderGovTar();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();}
 function saveTarifa(){
   var b=Number(document.getElementById('cfgTarifa').value),iv=Number(document.getElementById('cfgIva').value),tr=Number(document.getElementById('cfgTraslado').value);
   var ri=Number(document.getElementById('cfgRetIva').value),ris=Number(document.getElementById('cfgRetIslr').value);
@@ -3419,6 +3419,24 @@ function delCategoria(i){var c=cats[i];if(gastos.some(function(r){return r.cat==
 function exportJSON(){var data={version:6,exported:new Date().toISOString(),cfg:cfg,crematorios:crematorios,cats:cats,logos:logos,cremaciones:cremaciones,pagos:pagos,gastos:gastos,tasas:tasas,padron:padron,padronMeta:padronMeta,ingresos:ingresos,fondos:fondos};var blob=new Blob([JSON.stringify(data)],{type:'application/json'});downloadBlob(blob,'respaldo_cremaciones_'+today()+'.json');toast('Respaldo exportado');}
 function importJSON(ev){var f=ev.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var d=JSON.parse(rd.result);if(!confirm('Esto reemplazará todos los datos actuales por los del respaldo. ¿Continuar?'))return;if(d.cfg)cfg=Object.assign({},DEFAULT_CFG,d.cfg);if(Array.isArray(d.crematorios))crematorios=d.crematorios;if(Array.isArray(d.cats))cats=d.cats;if(d.logos&&typeof d.logos==='object')logos=d.logos;if(Array.isArray(d.cremaciones))cremaciones=d.cremaciones;if(Array.isArray(d.pagos))pagos=d.pagos;if(Array.isArray(d.gastos))gastos=d.gastos;if(d.tasas&&typeof d.tasas==='object')tasas=d.tasas;if(Array.isArray(d.padron))padron=d.padron;if(d.padronMeta&&typeof d.padronMeta==='object')padronMeta=d.padronMeta;if(Array.isArray(d.ingresos))ingresos=d.ingresos;if(Array.isArray(d.fondos)&&d.fondos.length)fondos=d.fondos;ensureFondo2();if(!fondos.some(function(f){return f.id===activeFundId;}))activeFundId=(fondos.find(function(f){return f.principal;})||fondos[0]).id;save(K.fondoActivo,activeFundId);save(K.fondos,fondos);save(K.ingresos,ingresos);save(K.padron,padron);save(K.padronMeta,padronMeta);save(K.tasas,tasas);save(K.cfg,cfg);save(K.crematorios,crematorios);save(K.cats,cats);save(K.logos,logos);save(K.crem,cremaciones);save(K.pagos,pagos);save(K.gasto,gastos);refreshSelects();fillConfigForm();refreshHeader();renderCrem();renderPagos();renderGasto();renderDashboard();toast('Respaldo importado');}catch(e){alert('Archivo inválido: '+e.message);}};rd.readAsText(f);ev.target.value='';}
 function wipeCremaciones(){if(!confirm('¿Borrar TODAS las cremaciones cargadas? Se conservan pagos, gastos, abonos y padrón. Exporte un respaldo antes.'))return;if(!confirm('Confirmación final: se eliminarán todas las cremaciones de este equipo.'))return;cremaciones=[];save(K.crem,cremaciones);renderCrem();renderDashboard();renderPagos();if(document.getElementById('rentabilidadHost'))renderRentabilidad();if(document.getElementById('conciliacionHost'))renderConciliacion();toast('Cremaciones borradas');}
+function reiniciarCero(){
+  if(!confirm('¿Reiniciar el sistema a CERO para un ambiente nuevo?\n\nSe borran TODOS los registros (cremaciones, pagos, gastos, abonos, padrón, operacionales, USDT) y se limpian las tasas de cambio y las tarifas a la Gobernación, incluidos los precios por fondo. Los fondos y la tarifa base se conservan.\n\nExporte un respaldo antes. Esta acción no se puede deshacer.'))return;
+  if(!confirm('Confirmación final: el sistema quedará completamente en cero.'))return;
+  cremaciones=[];pagos=[];gastos=[];ingresos=[];padron=[];padronMeta={updated:'',fname:''};
+  try{opPagos=[];}catch(e){}
+  try{usdtOps=[];}catch(e){}
+  tasas={};try{tasasUsdt={};}catch(e){}
+  cfg.tasa=0;cfg.govTarifas=[];
+  fondos.forEach(function(f){delete f.precioGob;});
+  save(K.crem,cremaciones);save(K.pagos,pagos);save(K.gasto,gastos);save(K.ingresos,ingresos);save(K.padron,padron);save(K.padronMeta,padronMeta);save(K.tasas,tasas);save(K.cfg,cfg);saveFondos();
+  try{save(K.opPagos,opPagos);}catch(e){}
+  try{save(K.usdtOps,usdtOps);}catch(e){}
+  try{save(K.tasasUsdt,tasasUsdt);}catch(e){}
+  fillConfigForm();refreshHeader();
+  try{renderCrem();renderPagos();renderGasto();}catch(e){}
+  renderDashboard();
+  toast('Sistema reiniciado a cero — ambiente limpio');
+}
 function wipe(){if(!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer. Exporte un respaldo antes.'))return;if(!confirm('Confirmación final: se eliminará toda la información de este equipo.'))return;[K.crem,K.pagos,K.gasto,K.cfg,K.crematorios,K.cats,K.logos,K.tasas,K.padron,K.padronMeta,K.ingresos,K.rentCobra,K.simuOn,K.simuSup,K.opActores,K.opConceptos,K.opPagos,K.fondos,K.fondoActivo].forEach(function(k){localStorage.removeItem(k);});cremaciones=[];pagos=[];gastos=[];padron=[];padronMeta={updated:'',fname:''};ingresos=[];rentCobra=true;simuOn=false;simuSup=[];opActores=[{id:'a_fun',tipo:'Funeraria',nombre:'Funeraria'},{id:'a_car',tipo:'Carrocero',nombre:'Carrocero'}];opConceptos=['Traslado','Manipulación','Carga de cadáveres'];opPagos=[];fondos=[{id:'f_prin',nombre:'Cremaciones La Guaira',principal:true}];save(K.fondos,fondos);activeFundId='f_prin';save(K.fondoActivo,activeFundId);cfg=Object.assign({},DEFAULT_CFG);crematorios=DEFAULT_CREMATORIOS.slice();cfg.traslados={};crematorios.forEach(function(c){cfg.traslados[c]=Number(DEFAULT_CFG.traslados[c])||0;});cfg.govTarifas=[{desde:'',hasta:'',monto:410}];crematorios=DEFAULT_CREMATORIOS.slice();cats=DEFAULT_CATS.slice();tasas=Object.assign({},DEFAULT_TASAS);save(K.tasas,tasas);logos={};logos['__valles_removed__']=1;logos['__inst__']=LAFE_LOGO;logos['__inst_ver__']=INST_LOGO_VER;save(K.logos,logos);refreshSelects();fillConfigForm();refreshHeader();renderCrem();renderPagos();renderGasto();renderDashboard();toast('Datos borrados');}
 
 /* ===== Modales ===== */
