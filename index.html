@@ -396,7 +396,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="side-group">Sistema</div>
       <button data-view="config">Configuración</button>
     </nav>
-    <div class="side-foot">Control de Cremaciones · v9.55</div>
+    <div class="side-foot">Control de Cremaciones · v9.56</div>
   </aside>
   <div class="sidebar-scrim" id="sideScrim" onclick="toggleSide(false)"></div>
   <div class="mainarea">
@@ -1462,7 +1462,7 @@ function generarReciboFondo(id){
   var fila=function(l,v){return '<tr><td class="lbl">'+l+'</td><td class="val">'+v+'</td></tr>';};
   var bullet=function(t,d){return '<div class="alc"><b>'+t+':</b> '+d+'</div>';};
   var doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Recibo de Fondo · '+recNo+'</title>'+
-  '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#231640;padding:26px 32px;background:#fff;font-size:12px;line-height:1.45}'+
+  '<style>*{box-sizing:border-box;margin:0;padding:0}@page{size:A4;margin:12mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;padding:26px 32px;background:#fff;font-size:12px;line-height:1.45}'+
   '.bar{text-align:center;margin-bottom:14px}.bar button{font-size:13px;font-weight:bold;background:#4B2D8F;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer}'+
   '.hd{display:flex;align-items:center;gap:15px;background:linear-gradient(135deg,#2E1A5E,#4B2D8F);color:#fff;padding:16px 20px;border-radius:12px 12px 0 0}.hd img{height:66px;background:#fff;border-radius:8px;padding:3px}'+
   '.hd h1{font-size:16px;line-height:1.2}.hd .co{font-size:11px;opacity:.85;margin-top:3px}'+
@@ -1472,7 +1472,7 @@ function generarReciboFondo(id){
   'table{width:100%;border-collapse:collapse}td{padding:7px 20px;border-bottom:1px solid #eee;font-size:11.5px;vertical-align:top}td.lbl{width:210px;font-weight:bold;background:#faf9fd;color:#4B2D8F}td.val{font-family:Consolas,Arial}'+
   '.alc{padding:8px 20px;font-size:11px;text-align:justify;border-bottom:1px solid #f0eef7}.alc b{color:#3A1D6E}'+
   '.firmas{display:flex;gap:30px;margin-top:34px;padding:0 20px}.fm{flex:1;text-align:center;border-top:1px solid #333;padding-top:6px;font-size:10.5px}.fm b{display:block;font-size:11.5px}'+
-  '.foot{margin-top:18px;font-size:9.5px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:9px}'+
+  '.foot{margin-top:18px;font-size:9.5px;color:#000;text-align:center;border-top:1px solid #eee;padding-top:9px}'+
   '@media print{body{padding:8px 12px}.noprint{display:none}}</style></head><body>'+
   '<div class="bar noprint"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>'+
   '<div class="hd"><img src="'+LAFE_LOGO+'"><div><h1>RECIBO DE FONDO PARA GESTIÓN ASISTENCIA FUNERARIA INTEGRAL</h1><div class="co">Seguros La Fe, C.A. &nbsp;·&nbsp; RIF J-000467382 &nbsp;·&nbsp; Organización Vallés</div></div></div>'+
@@ -1521,33 +1521,33 @@ function descargarEstadoGob(){
   var pvpLast=n2(precioGobDe(fondos[fondos.length-1].id));
   var pendVal=n2(pendCount*pvpLast),prestados=n2(totCancel+pendVal),netoPend=n2(pendVal-totSaldo);
   var pendTasa=(d.funds.length?Number(d.funds[d.funds.length-1].tasa)||0:0);var pendValBs=n2(pendVal*pendTasa);var prestadosBs=n2(totCancelBs+pendValBs);
-  var frows=d.funds.map(function(fd){var tr=Number(fd.tasa)||0;var bsu=function(u,col){return '<td class="r"'+(col?' style="color:'+col+'"':'')+'><div>'+fmtBs(n2(u*tr))+'</div><div style="font-size:9px;color:#888">$'+fmtNum(u,2)+'</div></td>';};return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'<div style="font-size:9px;color:#888;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';}).join('');
+  var frows=d.funds.map(function(fd){var tr=Number(fd.tasa)||0;var bsu=function(u,col){return '<td class="r"'+(col?' style="color:'+col+'"':'')+'><div>'+fmtBs(n2(u*tr))+'</div><div style="font-size:9px;color:#000">$'+fmtNum(u,2)+'</div></td>';};return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'<div style="font-size:9px;color:#000;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';}).join('');
   var kpi=function(k,v,c){return '<div class="kpi"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+v+'</div></div>';};
-  var rrow=function(l,v,c,bold){return '<tr class="'+(bold?'rbold':'')+'"><td>'+l+'</td><td class="r" style="color:'+(c||'#231640')+'">'+v+'</td></tr>';};
+  var rrow=function(l,v,c,bold){return '<tr class="'+(bold?'rbold':'')+'"><td>'+l+'</td><td class="r" style="color:'+(c||'#000')+'">'+v+'</td></tr>';};
   var doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Estado de Cuenta · Gobernación La Guaira</title>'+
-  '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#231640;padding:28px 34px;background:#fff}'+
+  '<style>*{box-sizing:border-box;margin:0;padding:0}@page{size:A4;margin:12mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;padding:28px 34px;background:#fff}'+
   '.head{display:flex;align-items:center;gap:16px;border-bottom:3px solid #3A1D6E;padding-bottom:14px;margin-bottom:6px}.head img{height:78px}'+
-  '.head .eyebrow{font-size:11px;font-weight:bold;color:#666;letter-spacing:.5px}.head h1{font-size:19px;color:#3A1D6E;margin:2px 0}.head .sub{font-size:11.5px;color:#555}'+
+  '.head .eyebrow{font-size:11px;font-weight:bold;color:#000;letter-spacing:.5px}.head h1{font-size:19px;color:#3A1D6E;margin:2px 0}.head .sub{font-size:11.5px;color:#000}'+
   '.sect{font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#4B2D8F;margin:22px 0 10px}'+
   'table{width:100%;border-collapse:collapse;font-size:12px}th{background:#3A1D6E;color:#fff;padding:8px 11px;text-align:left;font-size:11px}th.r,td.r{text-align:right}td{padding:7px 11px;border-bottom:1px solid #e7e4f0}tfoot td{font-weight:bold;background:#f3eefb;border-top:2px solid #4B2D8F}'+
-  '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.kpi{border:1px solid #e7e4f0;border-radius:10px;padding:12px 14px}.kpi .k{font-size:10px;font-weight:bold;text-transform:uppercase;color:#6f6b85}.kpi .v{font-size:18px;font-weight:bold;margin-top:4px}'+
+  '.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.kpi{border:1px solid #e7e4f0;border-radius:10px;padding:12px 14px}.kpi .k{font-size:10px;font-weight:bold;text-transform:uppercase;color:#000}.kpi .v{font-size:18px;font-weight:bold;margin-top:4px}'+
   '.resumen{margin-top:10px;border:1px solid #e7e4f0;border-radius:12px;overflow:hidden}.resumen .rh{background:#faf9fd;padding:12px 16px;font-weight:bold;border-bottom:1px solid #e7e4f0}.resumen table td{padding:8px 16px}.resumen .rbold td{font-weight:bold;font-size:14px;border-top:2px solid #d9d3ec}'+
-  '.foot{margin-top:20px;font-size:10px;color:#888;text-align:center;border-top:1px solid #e7e4f0;padding-top:10px}'+
+  '.foot{margin-top:20px;font-size:10px;color:#000;text-align:center;border-top:1px solid #e7e4f0;padding-top:10px}'+
   '@media print{body{padding:10px 14px}.noprint{display:none}}.bar{text-align:center;margin-bottom:16px}.bar button{font-size:13px;font-weight:bold;background:#4B2D8F;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer}</style></head><body>'+
   '<div class="bar noprint"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>'+
   '<div class="head"><img src="'+LAFE_LOGO+'"><div><div class="eyebrow">Gobernación del Estado La Guaira</div><h1>Administración de Fondos para Gestión de Asistencia Funeraria Integral</h1><div class="sub">Estado de Cuenta · Operador: Seguros La Fe, C.A. · Emitido: '+fmtDate(today())+'</div></div></div>'+
   '<div class="sect">Servicios pagados por fondo</div>'+
   '<table><thead><tr><th>Fondo</th><th class="r">PVP por caso</th><th class="r">Casos atendidos</th><th class="r">Servicios cancelados</th><th class="r">Fondos recibidos</th><th class="r">Saldo a favor</th></tr></thead><tbody>'+frows+'</tbody>'+
-  '<tfoot><tr><td class="r">TOTAL</td><td></td><td class="r">'+fmtNum(totCasos,0)+'</td>'+'<td class="r"><div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#888">$'+fmtNum(totCancel,2)+'</div></td>'+'<td class="r"><div>'+fmtBs(totFondosBs)+'</div><div style="font-size:9px;color:#888">$'+fmtNum(totFondos,2)+'</div></td>'+'<td class="r" style="color:#0e9488"><div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#0e9488">$'+fmtNum(totSaldo,2)+'</div></td></tr></tfoot></table>'+
+  '<tfoot><tr><td class="r">TOTAL</td><td></td><td class="r">'+fmtNum(totCasos,0)+'</td>'+'<td class="r"><div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#000">$'+fmtNum(totCancel,2)+'</div></td>'+'<td class="r"><div>'+fmtBs(totFondosBs)+'</div><div style="font-size:9px;color:#000">$'+fmtNum(totFondos,2)+'</div></td>'+'<td class="r" style="color:#0e9488"><div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#0e9488">$'+fmtNum(totSaldo,2)+'</div></td></tr></tfoot></table>'+
   '<div class="sect">Resumen de servicios (según padrón)</div>'+
-  '<div class="kpis">'+kpi('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón: '+fmtNum(totCasos,0)+' cancelados + '+fmtNum(pendCount,0)+' pendientes)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:11px;color:#888;font-weight:400">$'+fmtNum(prestados,2)+'</div>','#4B2D8F')+kpi('Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' casos pagados)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:11px;color:#888;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+kpi('Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:11px;color:#888;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00')+'</div>'+
+  '<div class="kpis">'+kpi('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón: '+fmtNum(totCasos,0)+' cancelados + '+fmtNum(pendCount,0)+' pendientes)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:11px;color:#000;font-weight:400">$'+fmtNum(prestados,2)+'</div>','#4B2D8F')+kpi('Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' casos pagados)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:11px;color:#000;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+kpi('Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:11px;color:#000;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00')+'</div>'+
   '<div class="sect">Resumen de fondos</div>'+
   '<div class="resumen"><div class="rh">Resumen de fondos</div><table>'+
-    rrow('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(prestados,2)+'</div>')+
-    rrow('(−) Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' servicios)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+
-    rrow('= Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00',true)+
-    rrow('(−) Saldo a favor del fondo','<div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(totSaldo,2)+'</div>','#0e9488')+
-    rrow('= Servicios pendientes por pagar (neto)','<div>'+fmtBs(n2(pendValBs-totSaldoBs))+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(netoPend,2)+'</div>','#9d2f2c',true)+
+    rrow('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(prestados,2)+'</div>')+
+    rrow('(−) Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' servicios)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+
+    rrow('= Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00',true)+
+    rrow('(−) Saldo a favor del fondo','<div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(totSaldo,2)+'</div>','#0e9488')+
+    rrow('= Servicios pendientes por pagar (neto)','<div>'+fmtBs(n2(pendValBs-totSaldoBs))+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(netoPend,2)+'</div>','#9d2f2c',true)+
   '</table></div>'+
   '<div class="foot">Documento generado por el sistema Control de Asistencia Funeraria Integral La Guaira · Seguros La Fe, C.A.</div>'+
   '</body></html>';
@@ -1563,20 +1563,20 @@ function descargarRelacionGob(){
   d.funds.forEach(function(fd,idx){
     secciones+='<section class="page">'+miniHead+
       '<div class="sect">Relaci\u00f3n de Asistencia Funeraria Integral con cargo al Fondo N\u00b0 '+(idx+1)+'</div>'+
-      '<div class="fdetail"><div class="fd-t">Detalle del Fondo</div><table class="fdt"><tbody>'+'<tr><td>Fondos recibidos</td><td>'+(fd.principal?'Funeraria Vall\u00e9s':'Seguros La Fe')+' &nbsp;\u00b7&nbsp; Bs. '+fmtNum(fd.fbs,2)+' / BCV $'+fmtNum(fd.fu,2)+' <span style="color:#888">(tasa BCV d\u00eda de pago: '+fmtNum(fd.tasa,4)+')</span></td></tr>'+'<tr><td>Total servicios cargados al fondo</td><td><b>'+fmtNum(fd.casos.length,0)+'</b></td></tr>'+'<tr><td>Costo integral por caso (tarifa de cobro)</td><td><b>$'+fmtNum(fd.pvp,2)+'</b></td></tr>'+'<tr><td>Monto total de los servicios</td><td><b>'+fmtNum(fd.casos.length,0)+' \u00d7 $'+fmtNum(fd.pvp,2)+' = $'+fmtNum(fd.usado,2)+'</b></td></tr>'+'<tr><td>Saldo a favor del fondo</td><td><b style="color:#0e9488">$'+fmtNum(fd.saldo,2)+'</b></td></tr>'+'</tbody></table></div>'+
-      '<table>'+thead+'<tbody>'+(fd.casos.length?casoRows(fd.casos):'<tr><td colspan="5" style="text-align:center;padding:16px;color:#888">Sin servicios asignados a este fondo</td></tr>')+'</tbody></table>'+
+      '<div class="fdetail"><div class="fd-t">Detalle del Fondo</div><table class="fdt"><tbody>'+'<tr><td>Fondos recibidos</td><td>'+(fd.principal?'Funeraria Vall\u00e9s':'Seguros La Fe')+' &nbsp;\u00b7&nbsp; Bs. '+fmtNum(fd.fbs,2)+' / BCV $'+fmtNum(fd.fu,2)+' <span style="color:#000">(tasa BCV d\u00eda de pago: '+fmtNum(fd.tasa,4)+')</span></td></tr>'+'<tr><td>Total servicios cargados al fondo</td><td><b>'+fmtNum(fd.casos.length,0)+'</b></td></tr>'+'<tr><td>Costo integral por caso (tarifa de cobro)</td><td><b>$'+fmtNum(fd.pvp,2)+'</b></td></tr>'+'<tr><td>Monto total de los servicios</td><td><b>'+fmtNum(fd.casos.length,0)+' \u00d7 $'+fmtNum(fd.pvp,2)+' = $'+fmtNum(fd.usado,2)+'</b></td></tr>'+'<tr><td>Saldo a favor del fondo</td><td><b style="color:#0e9488">$'+fmtNum(fd.saldo,2)+'</b></td></tr>'+'</tbody></table></div>'+
+      '<table>'+thead+'<tbody>'+(fd.casos.length?casoRows(fd.casos):'<tr><td colspan="5" style="text-align:center;padding:16px;color:#000">Sin servicios asignados a este fondo</td></tr>')+'</tbody></table>'+
       '</section>';
   });
   secciones+='<section class="page last">'+miniHead+
     '<div class="sect">Corte de Servicios Pendientes por Reportar</div>'+
     '<div class="fmeta">Servicios pendientes (padr\u00f3n \u2212 reportados): <b>'+fmtNum(d.restCasos.length,0)+'</b></div>'+
-    '<table>'+thead+'<tbody>'+(d.restCasos.length?casoRows(d.restCasos):'<tr><td colspan="5" style="text-align:center;padding:16px;color:#888">Sin servicios pendientes</td></tr>')+'</tbody></table>'+
+    '<table>'+thead+'<tbody>'+(d.restCasos.length?casoRows(d.restCasos):'<tr><td colspan="5" style="text-align:center;padding:16px;color:#000">Sin servicios pendientes</td></tr>')+'</tbody></table>'+
     '</section>';
-  var st='<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#231640;padding:24px 30px;background:#fff}'+
-  '.minihead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #3A1D6E;padding-bottom:12px;margin-bottom:8px}.minihead img{height:64px}.minihead .mh-t{font-size:10.5px;font-weight:bold;color:#666;letter-spacing:.4px}.minihead .mh-s{font-size:14px;color:#3A1D6E;font-weight:bold;margin-top:2px}.minihead .mh-d{margin-left:auto;text-align:right;font-size:10px;color:#777}'+
-  '.sect{font-size:13px;font-weight:bold;letter-spacing:.5px;color:#4B2D8F;margin:16px 0 6px}.fdetail{margin:6px 0 12px;border:1px solid #e7e4f0;border-radius:8px;overflow:hidden}.fd-t{background:#f3f0fa;color:#4B2D8F;font-weight:bold;font-size:12px;padding:7px 12px}.fdt{width:100%;border-collapse:collapse;font-size:11.5px}.fdt td{padding:6px 12px;border-bottom:1px solid #f0eef7}.fdt td:first-child{color:#555;width:46%}.fmeta{font-size:11px;color:#555;margin-bottom:10px;line-height:1.6}'+
+  var st='<style>*{box-sizing:border-box;margin:0;padding:0}@page{size:A4;margin:12mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;padding:24px 30px;background:#fff}'+
+  '.minihead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #3A1D6E;padding-bottom:12px;margin-bottom:8px}.minihead img{height:64px}.minihead .mh-t{font-size:10.5px;font-weight:bold;color:#000;letter-spacing:.4px}.minihead .mh-s{font-size:14px;color:#3A1D6E;font-weight:bold;margin-top:2px}.minihead .mh-d{margin-left:auto;text-align:right;font-size:10px;color:#000}'+
+  '.sect{font-size:13px;font-weight:bold;letter-spacing:.5px;color:#4B2D8F;margin:16px 0 6px}.fdetail{margin:6px 0 12px;border:1px solid #e7e4f0;border-radius:8px;overflow:hidden}.fd-t{background:#f3f0fa;color:#4B2D8F;font-weight:bold;font-size:12px;padding:7px 12px}.fdt{width:100%;border-collapse:collapse;font-size:11.5px}.fdt td{padding:6px 12px;border-bottom:1px solid #f0eef7}.fdt td:first-child{color:#000;width:46%}.fmeta{font-size:11px;color:#000;margin-bottom:10px;line-height:1.6}'+
   'table{width:100%;border-collapse:collapse;font-size:11.5px}th{background:#3A1D6E;color:#fff;padding:7px 10px;text-align:left;font-size:10.5px}th.c,td.c{text-align:center}td{padding:6px 10px;border-bottom:1px solid #e7e4f0}td.num{font-variant-numeric:tabular-nums}tr:nth-child(even) td{background:#faf9fd}'+
-  '.foot{margin-top:16px;font-size:9.5px;color:#888;text-align:center;border-top:1px solid #e7e4f0;padding-top:8px}'+
+  '.foot{margin-top:16px;font-size:9.5px;color:#000;text-align:center;border-top:1px solid #e7e4f0;padding-top:8px}'+
   '.bar{text-align:center;margin-bottom:14px}.bar button{font-size:13px;font-weight:bold;background:#4B2D8F;color:#fff;border:none;border-radius:8px;padding:10px 22px;cursor:pointer}'+
   '.page{page-break-after:always}.page.last{page-break-after:auto}'+
   '@media print{body{padding:8px 12px}.noprint{display:none}.page{page-break-after:always}}</style>';
