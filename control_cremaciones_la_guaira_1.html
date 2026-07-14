@@ -396,7 +396,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="side-group">Sistema</div>
       <button data-view="config">Configuración</button>
     </nav>
-    <div class="side-foot">Control de Cremaciones · v9.47</div>
+    <div class="side-foot">Control de Cremaciones · v9.54</div>
   </aside>
   <div class="sidebar-scrim" id="sideScrim" onclick="toggleSide(false)"></div>
   <div class="mainarea">
@@ -530,17 +530,18 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
           <select id="opActor" style="min-width:180px"></select>
           <select id="opConc" style="min-width:150px"></select>
           <input type="number" id="opCuerpos" placeholder="Cuerpos" style="width:100px" min="0">
-          <input type="date" id="opFecha">
-          <input type="number" id="opUsd" placeholder="Monto USD" style="width:130px" step="0.01">
-          <input type="number" id="opTasa" placeholder="Tasa BCV" style="width:110px" step="0.0001">
+          <input type="date" id="opFecha" onchange="opAutoTasa()">
+          <input type="number" id="opBs" placeholder="Monto en Bs" style="width:150px" step="0.01" oninput="opPreviewUsd()">
+          <input type="number" id="opTasa" placeholder="Tasa BCV (auto)" style="width:120px" step="0.0001" oninput="opPreviewUsd()"><span id="opUsdPrev" style="font-size:11px;color:var(--slate);align-self:center"></span>
           <select id="opEstado"><option value="pend">Pendiente de pago</option><option value="pag">Pagado</option></select>
+          <select id="opFondo" title="¿A qué fondo se imputa?" style="max-width:210px"><option value="">Fondo: automático (por fecha)</option></select>
           <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#0b5f58;background:#e4f4f2;border:1px solid #bfe6e1;border-radius:8px;padding:6px 11px;cursor:pointer"><input type="checkbox" id="opUsdt" style="width:16px;height:16px;accent-color:#0e9488">Fondos USDT</label>
           <input id="opBenef" placeholder="Beneficiario (opcional)" style="min-width:150px">
           <input id="opBanco" placeholder="Banco (opc.)" style="width:110px">
           <input id="opCuenta" placeholder="Cuenta (opc.)" style="width:140px">
           <input type="number" id="opUnid" placeholder="Cant./días" style="width:95px" step="0.01" oninput="opCalcMonto()">
           <input type="number" id="opTarifaU" placeholder="Tarifa USD" style="width:105px" step="0.01" oninput="opCalcMonto()">
-          <button class="btn gold" onclick="addOpPago()">Registrar</button>
+          <button class="btn gold" id="opAddBtn" onclick="addOpPago()">Registrar</button>
         </div>
         <div id="opAutoHost" style="margin-top:14px"></div>
         <div class="tablewrap" style="margin-top:12px;border:none;box-shadow:none"><table class="data" id="opTbl">
@@ -692,6 +693,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
         <label class="fld">Traslado por defecto (USD)<input type="number" step="0.01" id="cfgTraslado"></label>
         <label class="fld">Retención IVA (% del IVA)<input type="number" step="0.01" id="cfgRetIva"></label>
         <label class="fld">Retención ISLR (% del subtotal)<input type="number" step="0.01" id="cfgRetIslr"></label>
+        <div class="fld" style="grid-column:1/-1"><div style="font-size:11.5px;color:var(--slate);margin-bottom:5px;font-weight:600">Retención ISLR por fondo <span style="font-weight:400">(sobrescribe el % global — ej. Fondo 2 = 5% cuando paga la aseguradora)</span></div><div id="cfgIslrFondoBox" style="display:flex;flex-wrap:wrap;gap:12px"></div></div>
         <label class="fld">Patente — % sobre monto a cobrar a la Gobernación<input type="number" step="0.0001" id="cfgPatentePct" placeholder="% del abono neto · 0 = no aplica"></label>
         <label class="fld">IVA Seniat — % sobre el IVA de facturas<input type="number" step="0.0001" id="cfgIvaSeniatPct" placeholder="% del IVA calculado · 0 = no aplica"></label>
       </div>
@@ -798,7 +800,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
     <div class="grid3">
       <label class="fld">Crematorio <span class="req">*</span><select id="fPagoCrem" onchange="calcPagoMonto()"></select></label>
       <label class="fld">Fecha de pago <span class="req">*</span><input type="date" id="fPagoFecha" onchange="calcPagoRet()"></label>
-      <label class="fld">Fondo (a cuál se asigna) <select id="fPagoFondo"></select></label>
+      <label class="fld">Fondo (a cuál se asigna) <select id="fPagoFondo" onchange="pagoAutoIslr()"></select></label>
       <label class="fld">Cremaciones pagadas (cantidad) <span class="req">*</span><input type="number" min="1" step="1" id="fPagoCant" oninput="calcPagoMonto()"></label>
     </div>
     <div class="calc" style="margin-top:14px"><span>Monto del pago (cantidad × tarifa):</span><b class="num" id="fPagoMonto">$ 0.00</b></div>
@@ -810,6 +812,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
     <div class="grid2" style="margin-top:10px">
       <label class="fld"><span class="cap">Monto exonerado de IVA (Bs.)</span><input type="number" step="0.01" id="fPagoExonerado" oninput="calcPagoRet()" placeholder="Ánforas u otros conceptos sin IVA"></label>
       <label class="fld"><span class="cap">Retención de IVA aplicada</span><select id="fPagoRetIvaSel" onchange="calcPagoRet()"><option value="75">75% del IVA</option><option value="100">100% del IVA</option></select></label>
+      <label class="fld"><span class="cap">Retención ISLR (%)</span><input type="number" step="0.01" id="fPagoRetIslr" onchange="calcPagoRet()" oninput="calcPagoRet()" placeholder="auto según fondo"></label>
     </div>
     <div class="tarifabox" id="fPagoRetBox" style="margin-top:14px"></div>
     <div class="grid2" style="margin-top:14px">
@@ -850,6 +853,17 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
     <div class="calc" style="margin-top:14px"><span>Equivalente en dólares:</span><b class="num" id="fGastoUsdOut">$ 0.00</b></div>
   </div>
   <div class="mf"><button class="btn ghost" onclick="closeModal('modalGasto')">Cancelar</button><button class="btn" onclick="saveGasto()">Guardar gasto</button></div>
+</div></div>
+
+<!-- Modal Adjuntos pago operacional -->
+<div class="modal-bg" id="modalOpAtt"><div class="modal" style="max-width:540px">
+  <div class="mh"><h3 id="opAttTitle">Adjuntos del pago</h3><button class="xbtn" onclick="closeModal('modalOpAtt')">×</button></div>
+  <div class="mb">
+    <div class="ecnote" style="margin:0 0 12px">Adjunte todas las notas de débito de los voluntariados (PDF o imagen). Puede agregar varios archivos.</div>
+    <label class="btn gold" style="cursor:pointer;display:inline-block">📎 Agregar archivos<input type="file" multiple accept=".pdf,image/*" style="display:none" onchange="pickOpAtt(event)"></label>
+    <div id="opAttList" style="margin-top:14px"></div>
+  </div>
+  <div class="mf"><button class="btn ghost" onclick="closeModal('modalOpAtt')">Cerrar</button></div>
 </div></div>
 
 <!-- Modal Pago en lote de gastos -->
@@ -1294,22 +1308,27 @@ function renderCtasGob(){
   if(_sub==='relacion'){host.innerHTML=nav+'<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn gold" onclick="exportRelacionExcel()">⬇ Exportar relación (Excel)</button><button class="btn ghost sm" onclick="descargarRelacionGob()">🖨 Imprimir relación (PDF)</button></div>'+ctasRelacionHtml();return;}
   var d=ctasRelacionData();
   var totFondos=0,totCancel=0,totCasos=0,totSaldo=0;
+  var totFondosBs=0,totCancelBs=0,totSaldoBs=0;
   var frows=d.funds.map(function(fd){
+    var tr=Number(fd.tasa)||0;
     totFondos+=fd.fu;totCancel+=fd.usado;totCasos+=fd.casos.length;totSaldo+=fd.saldo;
-    return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'</td><td class="r num">'+fmtUsd(fd.pvp)+'</td><td class="r num">'+fmtNum(fd.casos.length,0)+'</td><td class="r num">'+fmtUsd(fd.usado)+'</td><td class="r num">'+fmtUsd(fd.fu)+'</td><td class="r num" style="color:#0e9488;font-weight:700">'+fmtUsd(fd.saldo)+'</td></tr>';
+    totFondosBs+=fd.fu*tr;totCancelBs+=fd.usado*tr;totSaldoBs+=fd.saldo*tr;
+    var bsu=function(usd,col){return '<td class="r num"><div'+(col?' style="color:'+col+'"':'')+'>'+fmtBs(n2(usd*tr))+'</div><div style="font-size:9.5px;color:#8a84a0;font-weight:400">$'+fmtNum(usd,2)+'</div></td>';};
+    return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'<div style="font-size:9.5px;color:#8a84a0;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r num">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';
   }).join('');
-  totFondos=n2(totFondos);totCancel=n2(totCancel);totSaldo=n2(totSaldo);totCasos=Math.round(totCasos);
+  totFondos=n2(totFondos);totCancel=n2(totCancel);totSaldo=n2(totSaldo);totCasos=Math.round(totCasos);totFondosBs=n2(totFondosBs);totCancelBs=n2(totCancelBs);totSaldoBs=n2(totSaldoBs);
   var padTot=padron.length;
   var pendCount=Math.max(0,padTot-totCasos);
   var pvpLast=n2(precioGobDe(fondos[fondos.length-1].id));
   var pendVal=n2(pendCount*pvpLast);
   var prestados=n2(totCancel+pendVal);
+  var pendTasa=(d.funds.length?Number(d.funds[d.funds.length-1].tasa)||0:0);var pendValBs=n2(pendVal*pendTasa);var prestadosBs=n2(totCancelBs+pendValBs);
   var cxc=pendVal;
   var card=function(k,v,s,c){return '<div style="background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px 16px"><div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--slate)">'+k+'</div><div class="num" style="font-size:19px;font-weight:800;margin-top:5px;color:'+(c||'#231640')+'">'+v+'</div><div style="font-size:11px;color:var(--slate);margin-top:2px">'+s+'</div></div>';};
-  var h='<div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#4B2D8F;margin:0 0 12px">Servicios pagados por fondo (en dólares)</div>';
+  var h='<div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#4B2D8F;margin:0 0 12px">Servicios pagados por fondo</div>';
   h+='<div class="tablewrap" style="margin-bottom:8px"><table class="data"><thead><tr><th>Fondo</th><th class="r">PVP por caso</th><th class="r">Casos atendidos</th><th class="r">Servicios cancelados</th><th class="r">Fondos recibidos</th><th class="r">Saldo a favor</th></tr></thead><tbody>'+frows+'</tbody>'+
-    '<tfoot><tr><td class="r" style="font-weight:800">TOTAL</td><td></td><td class="r num">'+fmtNum(totCasos,0)+'</td><td class="r num">'+fmtUsd(totCancel)+'</td><td class="r num">'+fmtUsd(totFondos)+'</td><td class="r num" style="color:#0e9488">'+fmtUsd(totSaldo)+'</td></tr></tfoot></table></div>';
-  h+='<div style="font-size:11.5px;color:var(--slate);margin-bottom:22px">Servicios cancelados ('+fmtUsd(totCancel)+') + Saldo a favor ('+fmtUsd(totSaldo)+') = Fondos recibidos ('+fmtUsd(totFondos)+'). Cada fondo paga solo cremaciones completas a su PVP; el resto queda como saldo a favor (sin sobregiro).</div>';
+    '<tfoot><tr><td class="r" style="font-weight:800">TOTAL</td><td></td><td class="r num">'+fmtNum(totCasos,0)+'</td><td class="r num"><div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9.5px;color:#8a84a0;font-weight:400">$'+fmtNum(totCancel,2)+'</div></td><td class="r num"><div>'+fmtBs(totFondosBs)+'</div><div style="font-size:9.5px;color:#8a84a0;font-weight:400">$'+fmtNum(totFondos,2)+'</div></td><td class="r num" style="color:#0e9488"><div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9.5px;color:#0e9488;font-weight:400">$'+fmtNum(totSaldo,2)+'</div></td></tr></tfoot></table></div>';
+  h+='<div style="font-size:11.5px;color:var(--slate);margin-bottom:22px">Servicios cancelados (Bs. '+fmtNum(totCancelBs,2)+' · $'+fmtNum(totCancel,2)+') + Saldo a favor (Bs. '+fmtNum(totSaldoBs,2)+' · $'+fmtNum(totSaldo,2)+') = Fondos recibidos (Bs. '+fmtNum(totFondosBs,2)+' · $'+fmtNum(totFondos,2)+'). Cada fondo cubre solo servicios completos a su tarifa; el resto queda como saldo a favor (sin sobregiro). Bolívares a la tasa BCV del día de cobro de cada fondo.</div>';
   h+='<div style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#4B2D8F;margin:0 0 12px">Resumen de servicios (según padrón)</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:10px">'+
     card('Total servicios prestados',fmtUsd(prestados),fmtNum(padTot,0)+' servicios del padrón ('+fmtNum(totCasos,0)+' cancelados + '+fmtNum(pendCount,0)+' pendientes)','#4B2D8F')+
@@ -1336,11 +1355,11 @@ function ctasRelacionData(){
   var all=padron.slice().sort(function(a,b){var fa=a.frec||'zzzz',fb=b.frec||'zzzz';return fa<fb?-1:(fa>fb?1:0);});
   var idx=0,funds=[];
   fondos.forEach(function(f){
-    var fu=_conFondo(f.id,function(){var s=0;ingresos.forEach(function(x){var b=ingBreak(x);var t=Number(x.tasa)||0;if(t>0)s+=(Number(b.total)||0)/t;});return n2(s);});
+    var _fd=_conFondo(f.id,function(){var s=0,bs=0;ingresos.forEach(function(x){var b=ingBreak(x);var t=Number(x.tasa)||0;var bt=Number(b.total)||0;bs+=bt;if(t>0)s+=bt/t;});return {usd:n2(s),bs:n2(bs)};});var fu=_fd.usd,fbs=_fd.bs;
     var pvp=n2(precioGobDe(f.id));var cubre=pvp>0?Math.floor(fu/pvp+1e-6):0;
     var casos=all.slice(idx,idx+cubre).map(function(p){return {fecha:p.frec||'',exp:p.code||'—',nombre:p.nombre||'—',ced:p.ced||'—'};});
     idx+=casos.length;
-    funds.push({nombre:f.nombre,fu:n2(fu),pvp:pvp,casos:casos,usado:n2(casos.length*pvp),saldo:n2(fu-casos.length*pvp)});
+    funds.push({nombre:f.nombre,principal:!!f.principal,fu:n2(fu),fbs:n2(fbs),tasa:(fu>0?n2(fbs/fu):0),pvp:pvp,casos:casos,usado:n2(casos.length*pvp),saldo:n2(fu-casos.length*pvp)});
   });
   var restCasos=all.slice(idx).map(function(p){return {fecha:p.frec||'',exp:p.code||'—',nombre:p.nombre||'—',ced:p.ced||'—'};});
   var fechas=all.map(function(p){return p.frec;}).filter(Boolean).sort();
@@ -1439,7 +1458,7 @@ function generarReciboFondo(id){
   '.hd h1{font-size:16px;line-height:1.2}.hd .co{font-size:11px;opacity:.85;margin-top:3px}'+
   '.meta{display:flex;justify-content:space-between;background:#f0edf7;border:1px solid #e0d9f0;border-top:none;padding:8px 20px;font-size:11px;font-weight:bold;color:#3A1D6E}'+
   '.concept{border:1px solid #e0d9f0;border-top:none;padding:12px 20px;font-size:11.5px;background:#fbfaff;text-align:justify}'+
-  '.sect{background:#3A1D6E;color:#fff;font-size:11px;font-weight:bold;letter-spacing:.5px;padding:7px 20px;margin-top:14px}'+
+  '.pgbreak{page-break-before:always;break-before:page;height:0}.sect{background:#3A1D6E;color:#fff;font-size:11px;font-weight:bold;letter-spacing:.5px;padding:7px 20px;margin-top:14px}'+
   'table{width:100%;border-collapse:collapse}td{padding:7px 20px;border-bottom:1px solid #eee;font-size:11.5px;vertical-align:top}td.lbl{width:210px;font-weight:bold;background:#faf9fd;color:#4B2D8F}td.val{font-family:Consolas,Arial}'+
   '.alc{padding:8px 20px;font-size:11px;text-align:justify;border-bottom:1px solid #f0eef7}.alc b{color:#3A1D6E}'+
   '.firmas{display:flex;gap:30px;margin-top:34px;padding:0 20px}.fm{flex:1;text-align:center;border-top:1px solid #333;padding-top:6px;font-size:10.5px}.fm b{display:block;font-size:11.5px}'+
@@ -1457,7 +1476,7 @@ function generarReciboFondo(id){
   bullet('Operación en sitio y trazabilidad','Operación permanente en el puerto de La Guaira y en la morgue provisional de «Los Silos»; plataforma automatizada de registro, identificación y trazabilidad; call center y notificación multicanal (SMS, correo y WhatsApp); custodia y gestión documental (certificado y acta de defunción, permiso de cremación).')+
   bullet('Logística y traslado','Traslado de los cuerpos bajo estricta cadena de frío hacia la región centro-occidental (Maracay y Valencia), ejecución de la cremación, retorno e identificación de los restos y entrega formal de las cenizas a los familiares en los puntos habilitados.')+
   bullet('Coordinación','Operativo coordinado de forma centralizada por Seguros La Fe, C.A. (Organización Vallés), bajo estándares de dignidad, respeto y profesionalismo. La tarifa única comprende la totalidad de servicios, movilizaciones, soportes e impuestos aplicables, sin cargo adicional alguno.')+
-  '<div class="sect">DATOS DEL PAGO</div>'+
+  '<div class="pgbreak"></div><div class="sect">DATOS DEL PAGO</div>'+
   '<table>'+
     fila('Tipo de moneda','Dólares BCV')+
     fila('Tarifa por caso','$ '+fmtNum(tarifa,2))+
@@ -1485,13 +1504,14 @@ function generarReciboFondo(id){
 }
 function descargarEstadoGob(){
   var d=ctasRelacionData();
-  var totFondos=0,totCancel=0,totCasos=0,totSaldo=0;
-  d.funds.forEach(function(fd){totFondos+=fd.fu;totCancel+=fd.usado;totCasos+=fd.casos.length;totSaldo+=fd.saldo;});
+  var totFondos=0,totCancel=0,totCasos=0,totSaldo=0,totFondosBs=0,totCancelBs=0,totSaldoBs=0;
+  d.funds.forEach(function(fd){var tr=Number(fd.tasa)||0;totFondos+=fd.fu;totCancel+=fd.usado;totCasos+=fd.casos.length;totSaldo+=fd.saldo;totFondosBs+=fd.fu*tr;totCancelBs+=fd.usado*tr;totSaldoBs+=fd.saldo*tr;});
   totFondos=n2(totFondos);totCancel=n2(totCancel);totSaldo=n2(totSaldo);totCasos=Math.round(totCasos);
   var padTot=padron.length,pendCount=Math.max(0,padTot-totCasos);
   var pvpLast=n2(precioGobDe(fondos[fondos.length-1].id));
   var pendVal=n2(pendCount*pvpLast),prestados=n2(totCancel+pendVal),netoPend=n2(pendVal-totSaldo);
-  var frows=d.funds.map(function(fd){return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'</td><td class="r">'+fmtUsd(fd.pvp)+'</td><td class="r">'+fmtNum(fd.casos.length,0)+'</td><td class="r">'+fmtUsd(fd.usado)+'</td><td class="r">'+fmtUsd(fd.fu)+'</td><td class="r" style="color:#0e9488;font-weight:700">'+fmtUsd(fd.saldo)+'</td></tr>';}).join('');
+  var pendTasa=(d.funds.length?Number(d.funds[d.funds.length-1].tasa)||0:0);var pendValBs=n2(pendVal*pendTasa);var prestadosBs=n2(totCancelBs+pendValBs);
+  var frows=d.funds.map(function(fd){var tr=Number(fd.tasa)||0;var bsu=function(u,col){return '<td class="r"'+(col?' style="color:'+col+'"':'')+'><div>'+fmtBs(n2(u*tr))+'</div><div style="font-size:9px;color:#888">$'+fmtNum(u,2)+'</div></td>';};return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'<div style="font-size:9px;color:#888;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';}).join('');
   var kpi=function(k,v,c){return '<div class="kpi"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+v+'</div></div>';};
   var rrow=function(l,v,c,bold){return '<tr class="'+(bold?'rbold':'')+'"><td>'+l+'</td><td class="r" style="color:'+(c||'#231640')+'">'+v+'</td></tr>';};
   var doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Estado de Cuenta · Gobernación La Guaira</title>'+
@@ -1506,18 +1526,18 @@ function descargarEstadoGob(){
   '@media print{body{padding:10px 14px}.noprint{display:none}}.bar{text-align:center;margin-bottom:16px}.bar button{font-size:13px;font-weight:bold;background:#4B2D8F;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer}</style></head><body>'+
   '<div class="bar noprint"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>'+
   '<div class="head"><img src="'+LAFE_LOGO+'"><div><div class="eyebrow">Gobernación del Estado La Guaira</div><h1>Administración de Fondos para Gestión de Asistencia Funeraria Integral</h1><div class="sub">Estado de Cuenta · Operador: Seguros La Fe, C.A. · Emitido: '+fmtDate(today())+'</div></div></div>'+
-  '<div class="sect">Servicios pagados por fondo (en dólares)</div>'+
+  '<div class="sect">Servicios pagados por fondo</div>'+
   '<table><thead><tr><th>Fondo</th><th class="r">PVP por caso</th><th class="r">Casos atendidos</th><th class="r">Servicios cancelados</th><th class="r">Fondos recibidos</th><th class="r">Saldo a favor</th></tr></thead><tbody>'+frows+'</tbody>'+
-  '<tfoot><tr><td class="r">TOTAL</td><td></td><td class="r">'+fmtNum(totCasos,0)+'</td><td class="r">'+fmtUsd(totCancel)+'</td><td class="r">'+fmtUsd(totFondos)+'</td><td class="r" style="color:#0e9488">'+fmtUsd(totSaldo)+'</td></tr></tfoot></table>'+
+  '<tfoot><tr><td class="r">TOTAL</td><td></td><td class="r">'+fmtNum(totCasos,0)+'</td>'+'<td class="r"><div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#888">$'+fmtNum(totCancel,2)+'</div></td>'+'<td class="r"><div>'+fmtBs(totFondosBs)+'</div><div style="font-size:9px;color:#888">$'+fmtNum(totFondos,2)+'</div></td>'+'<td class="r" style="color:#0e9488"><div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#0e9488">$'+fmtNum(totSaldo,2)+'</div></td></tr></tfoot></table>'+
   '<div class="sect">Resumen de servicios (según padrón)</div>'+
-  '<div class="kpis">'+kpi('Total servicios prestados',fmtUsd(prestados),'#4B2D8F')+kpi('Servicios cancelados por la Gobernación',fmtUsd(totCancel),'#0D7A4E')+kpi('Servicios pendientes por pagar',fmtUsd(pendVal),'#B07A00')+'</div>'+
+  '<div class="kpis">'+kpi('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón: '+fmtNum(totCasos,0)+' cancelados + '+fmtNum(pendCount,0)+' pendientes)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:11px;color:#888;font-weight:400">$'+fmtNum(prestados,2)+'</div>','#4B2D8F')+kpi('Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' casos pagados)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:11px;color:#888;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+kpi('Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:11px;color:#888;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00')+'</div>'+
   '<div class="sect">Resumen de fondos</div>'+
   '<div class="resumen"><div class="rh">Resumen de fondos</div><table>'+
-    rrow('Total servicios prestados',fmtUsd(prestados))+
-    rrow('(−) Servicios cancelados por la Gobernación',fmtUsd(totCancel),'#0D7A4E')+
-    rrow('= Servicios pendientes por pagar',fmtUsd(pendVal),'#B07A00',true)+
-    rrow('(−) Saldo a favor del fondo',fmtUsd(totSaldo),'#0e9488')+
-    rrow('= Servicios pendientes por pagar (neto)',fmtUsd(netoPend),'#9d2f2c',true)+
+    rrow('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(prestados,2)+'</div>')+
+    rrow('(−) Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' servicios)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+
+    rrow('= Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00',true)+
+    rrow('(−) Saldo a favor del fondo','<div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(totSaldo,2)+'</div>','#0e9488')+
+    rrow('= Servicios pendientes por pagar (neto)','<div>'+fmtBs(n2(pendValBs-totSaldoBs))+'</div><div style="font-size:9px;color:#888;font-weight:400">$'+fmtNum(netoPend,2)+'</div>','#9d2f2c',true)+
   '</table></div>'+
   '<div class="foot">Documento generado por el sistema Control de Asistencia Funeraria Integral La Guaira · Seguros La Fe, C.A.</div>'+
   '</body></html>';
@@ -1533,7 +1553,7 @@ function descargarRelacionGob(){
   d.funds.forEach(function(fd,idx){
     secciones+='<section class="page">'+miniHead+
       '<div class="sect">Relaci\u00f3n de Asistencia Funeraria Integral con cargo al Fondo N\u00b0 '+(idx+1)+'</div>'+
-      '<div class="fmeta">PVP por servicio: <b>'+fmtUsd(fd.pvp)+'</b> &nbsp;\u00b7&nbsp; Servicios cubiertos: <b>'+fmtNum(fd.casos.length,0)+'</b> &nbsp;\u00b7&nbsp; Fondo recibido: <b>'+fmtUsd(fd.fu)+'</b> &nbsp;\u00b7&nbsp; Servicios cancelados: <b>'+fmtUsd(fd.usado)+'</b> &nbsp;\u00b7&nbsp; Saldo a favor: <b style="color:#0e9488">'+fmtUsd(fd.saldo)+'</b></div>'+
+      '<div class="fdetail"><div class="fd-t">Detalle del Fondo</div><table class="fdt"><tbody>'+'<tr><td>Fondos recibidos</td><td>'+(fd.principal?'Funeraria Vall\u00e9s':'Seguros La Fe')+' &nbsp;\u00b7&nbsp; Bs. '+fmtNum(fd.fbs,2)+' / BCV $'+fmtNum(fd.fu,2)+' <span style="color:#888">(tasa BCV d\u00eda de pago: '+fmtNum(fd.tasa,4)+')</span></td></tr>'+'<tr><td>Total servicios cargados al fondo</td><td><b>'+fmtNum(fd.casos.length,0)+'</b></td></tr>'+'<tr><td>Costo integral por caso (tarifa de cobro)</td><td><b>$'+fmtNum(fd.pvp,2)+'</b></td></tr>'+'<tr><td>Monto total de los servicios</td><td><b>'+fmtNum(fd.casos.length,0)+' \u00d7 $'+fmtNum(fd.pvp,2)+' = $'+fmtNum(fd.usado,2)+'</b></td></tr>'+'<tr><td>Saldo a favor del fondo</td><td><b style="color:#0e9488">$'+fmtNum(fd.saldo,2)+'</b></td></tr>'+'</tbody></table></div>'+
       '<table>'+thead+'<tbody>'+(fd.casos.length?casoRows(fd.casos):'<tr><td colspan="5" style="text-align:center;padding:16px;color:#888">Sin servicios asignados a este fondo</td></tr>')+'</tbody></table>'+
       '</section>';
   });
@@ -1544,7 +1564,7 @@ function descargarRelacionGob(){
     '</section>';
   var st='<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#231640;padding:24px 30px;background:#fff}'+
   '.minihead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #3A1D6E;padding-bottom:12px;margin-bottom:8px}.minihead img{height:64px}.minihead .mh-t{font-size:10.5px;font-weight:bold;color:#666;letter-spacing:.4px}.minihead .mh-s{font-size:14px;color:#3A1D6E;font-weight:bold;margin-top:2px}.minihead .mh-d{margin-left:auto;text-align:right;font-size:10px;color:#777}'+
-  '.sect{font-size:13px;font-weight:bold;letter-spacing:.5px;color:#4B2D8F;margin:16px 0 6px}.fmeta{font-size:11px;color:#555;margin-bottom:10px;line-height:1.6}'+
+  '.sect{font-size:13px;font-weight:bold;letter-spacing:.5px;color:#4B2D8F;margin:16px 0 6px}.fdetail{margin:6px 0 12px;border:1px solid #e7e4f0;border-radius:8px;overflow:hidden}.fd-t{background:#f3f0fa;color:#4B2D8F;font-weight:bold;font-size:12px;padding:7px 12px}.fdt{width:100%;border-collapse:collapse;font-size:11.5px}.fdt td{padding:6px 12px;border-bottom:1px solid #f0eef7}.fdt td:first-child{color:#555;width:46%}.fmeta{font-size:11px;color:#555;margin-bottom:10px;line-height:1.6}'+
   'table{width:100%;border-collapse:collapse;font-size:11.5px}th{background:#3A1D6E;color:#fff;padding:7px 10px;text-align:left;font-size:10.5px}th.c,td.c{text-align:center}td{padding:6px 10px;border-bottom:1px solid #e7e4f0}td.num{font-variant-numeric:tabular-nums}tr:nth-child(even) td{background:#faf9fd}'+
   '.foot{margin-top:16px;font-size:9.5px;color:#888;text-align:center;border-top:1px solid #e7e4f0;padding-top:8px}'+
   '.bar{text-align:center;margin-bottom:14px}.bar button{font-size:13px;font-weight:bold;background:#4B2D8F;color:#fff;border:none;border-radius:8px;padding:10px 22px;cursor:pointer}'+
@@ -1667,13 +1687,13 @@ function manipTarifa(){var t=Number(cfg.manipTarifa);return isNaN(t)?50:t;}
 function manipulacionOn(){return cfg.manipOn!==false;}
 function manipulacionUsd(){if(!manipulacionOn())return 0;return n2(manipTarifa()*cuerposManipulados());}
 function opTotals(){
-  // USD agregado a la TASA DE HOY sobre los Bs reales (consistente con el estado de cuenta / fondo).
+  // USD por pago operacional a su TASA HISTÓRICA (guardada). No se fluctúa a tasa de hoy.
   var bh=bcvHoyRate()||Number(cfg.tasa)||1;
-  var pagBs=0,pendBs=0,pagN=0,pendN=0,cuerpos=0,trPagBs=0,trPendBs=0,trPagCu=0,trPendCu=0;
-  opPagos.forEach(function(p){var b=Number(p.bs)||0,cu=Number(p.cuerpos)||0,tr=isTraslado(p.concepto),pagd=(p.estado!=='pendiente');cuerpos+=cu;
-    if(pagd){pagBs+=b;pagN++;if(tr){trPagBs+=b;trPagCu+=cu;}}else{pendBs+=b;pendN++;if(tr){trPendBs+=b;trPendCu+=cu;}}});
-  var _mU=manipulacionUsd();if(_mU>0){pendBs+=n2(_mU*bh);pendN++;cuerpos+=cuerposManipulados();}
-  return {pagUsd:n2(pagBs/bh),pagBs:n2(pagBs),pendUsd:n2(pendBs/bh),pendBs:n2(pendBs),pagN:pagN,pendN:pendN,cuerpos:cuerpos,trPagUsd:n2(trPagBs/bh),trPagBs:n2(trPagBs),trPendUsd:n2(trPendBs/bh),trPendBs:n2(trPendBs),trPagCu:trPagCu,trPendCu:trPendCu};
+  var pagBs=0,pendBs=0,pagUsd=0,pendUsd=0,pagN=0,pendN=0,cuerpos=0,trPagBs=0,trPendBs=0,trPagUsd=0,trPendUsd=0,trPagCu=0,trPendCu=0;
+  opPagos.forEach(function(p){var b=Number(p.bs)||0,u=(Number(p.usd)||usdOf(b,p.tasa)),cu=Number(p.cuerpos)||0,tr=isTraslado(p.concepto),pagd=(p.estado!=='pendiente');cuerpos+=cu;
+    if(pagd){pagBs+=b;pagUsd+=u;pagN++;if(tr){trPagBs+=b;trPagUsd+=u;trPagCu+=cu;}}else{pendBs+=b;pendUsd+=u;pendN++;if(tr){trPendBs+=b;trPendUsd+=u;trPendCu+=cu;}}});
+  var _mU=manipulacionUsd();if(_mU>0){pendBs+=n2(_mU*bh);pendUsd+=_mU;pendN++;cuerpos+=cuerposManipulados();}
+  return {pagUsd:n2(pagUsd),pagBs:n2(pagBs),pendUsd:n2(pendUsd),pendBs:n2(pendBs),pagN:pagN,pendN:pendN,cuerpos:cuerpos,trPagUsd:n2(trPagUsd),trPagBs:n2(trPagBs),trPendUsd:n2(trPendUsd),trPendBs:n2(trPendBs),trPagCu:trPagCu,trPendCu:trPendCu};
 }
 function gastosTotals(){
   // USD por gasto a su TASA HISTÓRICA (tasa de ocurrencia). No se fluctúa a tasa de hoy.
@@ -1849,14 +1869,14 @@ function opActorLbl(a){return a?(a.tipo+' — '+a.nombre):'—';}
 function renderOper(){
   var la=document.getElementById('opActoresList');if(la)la.innerHTML=opActores.length?opActores.map(function(a){return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed var(--line-2);font-size:12.5px"><span><span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:12px;background:#ece8f4;color:var(--tp)">'+esc(a.tipo)+'</span> '+esc(a.nombre)+'</span><button class="btn ghost icon sm" style="color:var(--danger);border-color:var(--danger)" onclick="delOpActor(\''+a.id+'\')">🗑</button></div>';}).join(''):'<div class="muted" style="font-size:12px;color:var(--slate)">Sin actores. Agregue funerarias o carroceros.</div>';
   var lc=document.getElementById('opConcList');if(lc)lc.innerHTML=opConceptos.length?opConceptos.map(function(c,i){return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed var(--line-2);font-size:12.5px"><span>'+esc(c)+'</span><button class="btn ghost icon sm" style="color:var(--danger);border-color:var(--danger)" onclick="delOpConcepto('+i+')">🗑</button></div>';}).join(''):'<div class="muted" style="font-size:12px;color:var(--slate)">Sin conceptos.</div>';
-  var sa=document.getElementById('opActor');if(sa)sa.innerHTML=opActores.map(function(a){return '<option value="'+a.id+'">'+esc(opActorLbl(a))+'</option>';}).join('')||'<option value="">(cree un actor)</option>';
+  var _sf=document.getElementById('opFondo');if(_sf&&window.fillFondoSel){var _fv=_sf.value;fillFondoSel(_sf,_fv);}var sa=document.getElementById('opActor');if(sa)sa.innerHTML=opActores.map(function(a){return '<option value="'+a.id+'">'+esc(opActorLbl(a))+'</option>';}).join('')||'<option value="">(cree un actor)</option>';
   var sc=document.getElementById('opConc');if(sc)sc.innerHTML=opConceptos.map(function(c){return '<option>'+esc(c)+'</option>';}).join('')||'<option value="">(cree un concepto)</option>';
   var tasaEl=document.getElementById('opTasa');if(tasaEl&&!tasaEl.value){var rh=bcvHoyRate();if(rh>0)tasaEl.value=rh;}
   var b=document.getElementById('opBody'),f=document.getElementById('opFoot');if(!b)return;
   var totBs=0,totU=0,totCu=0,pagU=0,pendU=0;
   b.innerHTML=opPagos.length?opPagos.slice().sort(function(x,y){return (x.fecha||'')<(y.fecha||'')?1:-1;}).map(function(p,i){var u=usdOfPagoOp(p),act=opActores.find(function(a){return a.id===p.actorId;}),pagd=(p.estado!=='pendiente');totBs+=Number(p.bs)||0;totU+=u;totCu+=Number(p.cuerpos)||0;if(pagd)pagU+=u;else pendU+=u;
     var tag='<span style="font-size:10px;font-weight:800;padding:2px 9px;border-radius:12px;cursor:pointer;background:'+(pagd?'#e6f3ec':'#fdf1dc')+';color:'+(pagd?'#0D7A4E':'#B07A00')+'" onclick="toggleOpEstado(\''+p.id+'\')">'+(pagd?'Pagado':'Pendiente')+'</span>';
-    return '<tr><td class="c num">'+(i+1)+'</td><td class="num">'+fmtDate(p.fecha)+'</td><td>'+esc(act?opActorLbl(act):(p.actorNom||'—'))+'</td><td>'+esc(p.concepto)+usdtChip(p)+'</td><td class="c num">'+fmtNum(Number(p.cuerpos)||0,0)+'</td><td class="r num">'+fmtBs(p.bs)+'</td><td class="r num">'+fmtNum(p.tasa,4)+'</td><td class="r num">'+fmtUsd(u)+'</td><td class="c">'+tag+'</td><td class="c" style="white-space:nowrap"><button class="btn ghost icon sm" style="color:var(--danger);border-color:var(--danger)" onclick="delOpPago(\''+p.id+'\')">🗑</button></td></tr>';}).join(''):'<tr><td colspan="10"><div class="empty" style="padding:18px"><div class="em-t">Sin pagos operacionales</div>Registre pagos a funerarias o carroceros.</div></td></tr>';
+    return '<tr><td class="c num">'+(i+1)+'</td><td class="num">'+fmtDate(p.fecha)+'</td><td>'+esc(act?opActorLbl(act):(p.actorNom||'—'))+'</td><td>'+esc(p.concepto)+usdtChip(p)+'</td><td class="c num">'+fmtNum(Number(p.cuerpos)||0,0)+'</td><td class="r num">'+fmtBs(p.bs)+'</td><td class="r num">'+fmtNum(p.tasa,4)+'</td><td class="r num">'+fmtUsd(u)+'</td><td class="c">'+tag+'</td><td class="c" style="white-space:nowrap"><button class="btn ghost sm" title="Adjuntos" onclick="openOpAtt(\''+p.id+'\')">📎 '+((p.att&&p.att.length)||0)+'</button> <button class="btn ghost icon sm" title="Editar" onclick="editOpPago(\''+p.id+'\')">✎</button> <button class="btn ghost icon sm" style="color:var(--danger);border-color:var(--danger)" onclick="delOpPago(\''+p.id+'\')">🗑</button></td></tr>';}).join(''):'<tr><td colspan="10"><div class="empty" style="padding:18px"><div class="em-t">Sin pagos operacionales</div>Registre pagos a funerarias o carroceros.</div></td></tr>';
   f.innerHTML='<tr><td colspan="4" class="r">TOTAL</td><td class="c num">'+fmtNum(totCu,0)+'</td><td class="r num">'+fmtBs(n2(totBs))+'</td><td></td><td class="r num">'+fmtUsd(n2(totU))+'</td><td class="c num" style="font-size:11px">'+fmtUsd(n2(pagU))+' pag.<br>'+fmtUsd(n2(pendU))+' pend.</td><td></td></tr>';
   var ah=document.getElementById('opAutoHost');
   if(ah){var _bh=bcvHoyRate()||1,ncu=cuerposManipulados(),ntras=cuerposVallesTuy(),manU=manipulacionUsd(),manT=manipTarifa(),ti=trasladosIncurridos(),traU=trasladoUnitConIva();
@@ -1869,14 +1889,24 @@ function delOpActor(id){if(!confirm('¿Eliminar este actor?'))return;opActores=o
 function addOpConcepto(){var n=document.getElementById('opConcNom').value.trim();if(!n)return;if(opConceptos.indexOf(n)<0)opConceptos.push(n);save(K.opConceptos,opConceptos);document.getElementById('opConcNom').value='';renderOper();}
 function delOpConcepto(i){opConceptos.splice(i,1);save(K.opConceptos,opConceptos);renderOper();}
 function opCalcMonto(){var u=Number((document.getElementById('opUnid')||{}).value)||0,t=Number((document.getElementById('opTarifaU')||{}).value)||0;if(u>0&&t>0){var e=document.getElementById('opUsd');if(e)e.value=n2(u*t);}}
+function openOpAtt(id){window._opAttId=id;renderOpAtt();document.getElementById('modalOpAtt').classList.add('open');}
+function renderOpAtt(){var p=opPagos.find(function(x){return x.id===window._opAttId;});if(!p)return;var att=p.att||[];var t=document.getElementById('opAttTitle');if(t)t.textContent='Adjuntos · '+esc(p.actorNom||p.concepto||'pago');var h='';if(att.length){att.forEach(function(a,i){var ic=(/pdf/i.test(a.type)?'📄':'🖼');h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid #f0eef7;font-size:12.5px"><span>'+ic+'</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.name)+'</span><button class="btn ghost sm" onclick="viewOpAtt('+i+')">Ver / Descargar</button><button class="btn ghost icon sm" style="color:var(--danger);border-color:var(--danger)" onclick="delOpAtt('+i+')">🗑</button></div>';});}else h='<div class="empty" style="padding:16px"><div class="em-t">Sin adjuntos</div>Agregue las notas de débito.</div>';document.getElementById('opAttList').innerHTML=h;}
+function pickOpAtt(ev){var p=opPagos.find(function(x){return x.id===window._opAttId;});if(!p){ev.target.value='';return;}p.att=p.att||[];var files=ev.target.files;var pending=files.length;if(!pending)return;Array.prototype.forEach.call(files,function(f){var r=new FileReader();r.onload=function(){p.att.push({name:f.name,type:f.type||'',data:r.result});pending--;if(pending===0){save(K.opPagos,opPagos);renderOpAtt();try{renderOper();}catch(e){}toast('Adjunto(s) agregado(s)');}};r.onerror=function(){pending--;};r.readAsDataURL(f);});ev.target.value='';}
+function viewOpAtt(i){var p=opPagos.find(function(x){return x.id===window._opAttId;});if(p&&p.att&&p.att[i])openData(p.att[i].data);}
+function delOpAtt(i){var p=opPagos.find(function(x){return x.id===window._opAttId;});if(!p||!p.att)return;p.att.splice(i,1);save(K.opPagos,opPagos);renderOpAtt();try{renderOper();}catch(e){}}
+function opAutoTasa(){var f=document.getElementById('opFecha'),t=document.getElementById('opTasa');if(!f||!t)return;if(f.value){var r=bcvRate(f.value);if(r>0)t.value=r;}opPreviewUsd();}
+function opPreviewUsd(){var bE=document.getElementById('opBs'),tE=document.getElementById('opTasa'),o=document.getElementById('opUsdPrev');if(!o)return;var b=Number(bE&&bE.value)||0,t=Number(tE&&tE.value)||0;o.textContent=(b>0&&t>0)?('= $'+fmtNum(b/t,2)):'';}
+function editOpPago(id){var p=opPagos.find(function(x){return x.id===id;});if(!p)return;window._opEditId=id;var set=function(eid,v){var e=document.getElementById(eid);if(e)e.value=(v==null?'':v);};set('opActor',p.actorId);set('opConc',p.concepto);set('opCuerpos',p.cuerpos);set('opFecha',p.fecha);set('opBs',p.bs);set('opTasa',p.tasa);set('opBenef',p.beneficiario);set('opBanco',p.banco);set('opCuenta',p.cuenta);set('opUnid',p.unidades);set('opTarifaU',p.tarifaU);set('opFondo',p.fondoId||'');var es=document.getElementById('opEstado');if(es)es.value=(p.estado==='pagado'?'pag':'pend');var uc=document.getElementById('opUsdt');if(uc)uc.checked=!!p.usdtPagado;var b=document.getElementById('opAddBtn');if(b)b.textContent='✔ Guardar cambios';var h=document.getElementById('opActor');if(h&&h.scrollIntoView)h.scrollIntoView({behavior:'smooth',block:'center'});toast('Editando pago operacional — modifique y guarde');}
 function addOpPago(){
-  var actorId=document.getElementById('opActor').value,concepto=document.getElementById('opConc').value,cuerpos=Number(document.getElementById('opCuerpos').value)||0,fecha=document.getElementById('opFecha').value||today(),usd=Number(document.getElementById('opUsd').value)||0,tasa=Number(document.getElementById('opTasa').value)||bcvHoyRate(),estado=document.getElementById('opEstado').value==='pag'?'pagado':'pendiente';
+  var actorId=document.getElementById('opActor').value,concepto=document.getElementById('opConc').value,cuerpos=Number(document.getElementById('opCuerpos').value)||0,fecha=document.getElementById('opFecha').value||today(),bs=Number(document.getElementById('opBs').value)||0,tasa=Number(document.getElementById('opTasa').value)||bcvRate(document.getElementById('opFecha').value||today())||bcvHoyRate(),usd=(tasa>0?bs/tasa:0),estado=document.getElementById('opEstado').value==='pag'?'pagado':'pendiente';
   var benef=((document.getElementById('opBenef')||{}).value||'').trim(),banco=((document.getElementById('opBanco')||{}).value||'').trim(),cuenta=((document.getElementById('opCuenta')||{}).value||'').trim(),unid=Number((document.getElementById('opUnid')||{}).value)||0,tarU=Number((document.getElementById('opTarifaU')||{}).value)||0;
-  if(!concepto){toast('Seleccione un concepto');return;}if(usd<=0||tasa<=0){toast('Indique monto USD (o cantidad × tarifa) y tasa');return;}
+  if(!concepto){toast('Seleccione un concepto');return;}if(bs<=0||tasa<=0){toast('Indique el monto en Bs y la fecha (la tasa se carga sola)');return;}
   var act=opActores.find(function(a){return a.id===actorId;});
   var nom=act?opActorLbl(act):(benef||'—');
-  opPagos.push({id:uid(),fecha:fecha,actorId:actorId,actorNom:nom,beneficiario:benef,banco:banco,cuenta:cuenta,unidades:unid,tarifaU:tarU,concepto:concepto,cuerpos:cuerpos,bs:n2(usd*tasa),tasa:tasa,usd:n2(usd),estado:estado,usdtPagado:!!document.getElementById('opUsdt').checked});
-  save(K.opPagos,opPagos);['opUsd','opCuerpos','opBenef','opBanco','opCuenta','opUnid','opTarifaU'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});var _ou=document.getElementById('opUsdt');if(_ou)_ou.checked=false;
+  var _fid=((document.getElementById('opFondo')||{}).value||'');
+  var _rec={fecha:fecha,actorId:actorId,actorNom:nom,beneficiario:benef,banco:banco,cuenta:cuenta,unidades:unid,tarifaU:tarU,concepto:concepto,cuerpos:cuerpos,bs:n2(bs),tasa:tasa,usd:n2(usd),estado:estado,fondoId:_fid,usdtPagado:!!document.getElementById('opUsdt').checked};
+  if(window._opEditId){var ei=opPagos.findIndex(function(p){return p.id===window._opEditId;});if(ei>=0)Object.assign(opPagos[ei],_rec);window._opEditId=null;var _ob=document.getElementById('opAddBtn');if(_ob)_ob.textContent='＋ Registrar pago';}else{_rec.id=uid();opPagos.push(_rec);}
+  save(K.opPagos,opPagos);['opBs','opCuerpos','opBenef','opBanco','opCuenta','opUnid','opTarifaU'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});var _ou=document.getElementById('opUsdt');if(_ou)_ou.checked=false;
   renderOper();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();toast('Pago operacional registrado');
 }
 function delOpPago(id){opPagos=opPagos.filter(function(p){return p.id!==id;});save(K.opPagos,opPagos);renderOper();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();}
@@ -2207,11 +2237,15 @@ function dataURLtoBlob(d){var a=d.split(','),mime=(a[0].match(/:(.*?);/)||[])[1]
 function openData(d){try{var url=URL.createObjectURL(dataURLtoBlob(d));window.open(url,'_blank');setTimeout(function(){URL.revokeObjectURL(url);},60000);}catch(e){alert('No se pudo abrir el archivo.');}}
 function openPagoAtt(id,which){var p=pagos.find(function(x){return x.id===id;});if(!p)return;var d=which==='factura'?p.factura:p.transfer;if(d)openData(d);}
 function calcPagoMonto(){var c=document.getElementById('fPagoCrem').value,cant=Number(document.getElementById('fPagoCant').value)||0,b=tarifaBreak(c),el=document.getElementById('fPagoMonto');if(b.conTraslado){el.innerHTML=fmtUsd(cant*b.total)+' <span style="font-size:10px;color:var(--slate);font-weight:400">(cremación '+fmtUsd(cant*b.base)+' + traslado '+fmtUsd(cant*(b.tras+b.ivaTras))+')</span>';}else{el.textContent=fmtUsd(cant*b.total);}}
+function islrPctDe(fid){var m=cfg.retIslrFondo||{};if(fid&&m[fid]!=null&&m[fid]!=='')return Number(m[fid])||0;return Number(cfg.retIslrPct)||0;}
+function pagoAutoIslr(){var e=document.getElementById('fPagoRetIslr');if(!e)return;var fid=fondoDeReg({fondoId:((document.getElementById('fPagoFondo')||{}).value||''),fecha:((document.getElementById('fPagoFecha')||{}).value||today())},'fecha');e.value=islrPctDe(fid);if(window.calcPagoRet)calcPagoRet();}
 function pagoRetVals(){
   var S=Number(document.getElementById('fPagoSubtotal').value)||0;
   var E=Number(document.getElementById('fPagoExonerado').value)||0;
   var selEl=document.getElementById('fPagoRetIvaSel');
-  var ivaP=Number(cfg.ivaPct)||0,riP=selEl?(Number(selEl.value)||Number(cfg.retIvaPct)||0):(Number(cfg.retIvaPct)||0),rislrP=Number(cfg.retIslrPct)||0;
+  var _fid=fondoDeReg({fondoId:((document.getElementById('fPagoFondo')||{}).value||''),fecha:((document.getElementById('fPagoFecha')||{}).value||today())},'fecha');
+  var _rislrIn=document.getElementById('fPagoRetIslr');
+  var ivaP=Number(cfg.ivaPct)||0,riP=selEl?(Number(selEl.value)||Number(cfg.retIvaPct)||0):(Number(cfg.retIvaPct)||0),rislrP=(_rislrIn&&String(_rislrIn.value).trim()!=='')?(Number(_rislrIn.value)||0):islrPctDe(_fid);
   var iva=S*ivaP/100,total=S+iva+E,retIva=iva*riP/100,retIslr=S*rislrP/100,neto=total-retIva-retIslr;
   var T=Number(document.getElementById('fPagoTransferBs').value)||0;
   return {S:S,E:E,ivaP:ivaP,riP:riP,rislrP:rislrP,iva:iva,total:total,retIva:retIva,retIslr:retIslr,neto:neto,T:T,diff:T-neto};
@@ -2241,7 +2275,7 @@ function openPago(id){
     document.getElementById('mPagoTitle').textContent='Editar pago';
     document.getElementById('fPagoId').value=p.id;document.getElementById('fPagoCrem').value=p.crematorio;document.getElementById('fPagoFecha').value=p.fecha;document.getElementById('fPagoFondo').value=p.fondoId||'';document.getElementById('fPagoCant').value=p.cantidad;document.getElementById('fPagoObs').value=p.obs||'';
     document.getElementById('fPagoSubtotal').value=p.subtotal||'';document.getElementById('fPagoTransferBs').value=p.transferBs||'';
-    document.getElementById('fPagoExonerado').value=p.exonerado||'';document.getElementById('fPagoRetIvaSel').value=String(p.retIvaPct||cfg.retIvaPct||75);
+    document.getElementById('fPagoExonerado').value=p.exonerado||'';document.getElementById('fPagoRetIvaSel').value=String(p.retIvaPct||cfg.retIvaPct||75);document.getElementById('fPagoRetIslr').value=(p.rislrP!=null?p.rislrP:islrPctDe(fondoDeReg(p,'fecha')));
     document.getElementById('fPagoBanco').value=p.banco||'';document.getElementById('fPagoRef').value=p.ref||'';
     _attFactura=p.factura||null;_attFacturaName=p.facturaName||'';_attTransfer=p.transfer||null;_attTransferName=p.transferName||'';
     document.getElementById('fPagoFacturaName').textContent=p.facturaName||(p.factura?'archivo adjunto':'—');
@@ -2250,7 +2284,7 @@ function openPago(id){
     document.getElementById('mPagoTitle').textContent='Registrar pago';
     document.getElementById('fPagoId').value='';document.getElementById('fPagoFecha').value=today();document.getElementById('fPagoCant').value='';document.getElementById('fPagoObs').value='';
     document.getElementById('fPagoSubtotal').value='';document.getElementById('fPagoTransferBs').value='';
-    document.getElementById('fPagoExonerado').value='';document.getElementById('fPagoRetIvaSel').value=String(cfg.retIvaPct||75);
+    document.getElementById('fPagoExonerado').value='';document.getElementById('fPagoRetIvaSel').value=String(cfg.retIvaPct||75);var _e=document.getElementById('fPagoRetIslr');if(_e)_e.value='';
     document.getElementById('fPagoBanco').value='';document.getElementById('fPagoRef').value='';
   }
   calcPagoMonto();calcPagoRet();var _uc=document.getElementById('fPagoUsdt');if(_uc)_uc.checked=!!(id&&(pagos.find(function(x){return x.id===id;})||{}).usdtPagado);document.getElementById('modalPago').classList.add('open');
@@ -2833,10 +2867,10 @@ function renderRentabilidad(){
     '<tr style="border-top:2px solid var(--line-2);background:#eef4fb"><td class="op" style="color:#245e94">=</td><td><b style="color:#245e94">Saldo Disponible para pagos</b> '+sub+'(neto − patente'+(ivaSeniatOn?' − IVA Seniat':'')+')</span></td><td class="r num" style="color:#245e94;font-weight:800">'+fmtBs(fondoDispB)+usdu(U(fondoDispB))+'</td></tr>'+
     ecSec('Pagos efectuados')+
     ecRow('−','Pago en Cremaciones '+sub+'(base + IVA · panel)</span>',pagCremBaseB,null,false,pagCremUsdFijo())+
-    ecRow('−','Pago por traslados '+sub+'('+esc(trasCremLbl)+')</span>',trasCremPagB)+
-    ecRow('−','Pago por gastos de logística'+supG,pagGastB)+
-    ecRow('−','Pago operacionales '+sub+'(manipulación / carga / traslados de funerarias)</span>',opE.pagBs)+
-    '<tr style="border-top:2px solid var(--line-2);background:#faf9fe"><td class="op">=</td><td><b>Saldo Pagado</b> '+sub+'(suma de todos los pagos)</span></td><td class="r num" style="color:#4B2D8F;font-weight:800">'+fmtBs(saldoPagB)+usdu(n2(pagTotUsdFijo()+(bh?((pagGastB||0)+(pagOperB||0))/bh:0)))+'</td></tr>'+
+    ecRow('−','Pago por traslados '+sub+'('+esc(trasCremLbl)+')</span>',trasCremPagB,null,false,n2(pagTotUsdFijo()-pagCremUsdFijo()))+
+    ecRow('−','Pago por gastos de logística'+supG,pagGastB,null,false,(gtE.pagUsd||0))+
+    ecRow('−','Pago operacionales '+sub+'(manipulación / carga / traslados de funerarias)</span>',opE.pagBs,null,false,(opE.pagUsd||0))+
+    '<tr style="border-top:2px solid var(--line-2);background:#faf9fe"><td class="op">=</td><td><b>Saldo Pagado</b> '+sub+'(suma de todos los pagos)</span></td><td class="r num" style="color:#4B2D8F;font-weight:800">'+fmtBs(saldoPagB)+usdu(n2(pagTotUsdFijo()+(gtE.pagUsd||0)+(opE.pagUsd||0)))+'</td></tr>'+
     '<tr style="background:#eef4fb"><td class="op" style="color:#245e94">=</td><td><b style="color:#245e94">Disponibilidad del Fondo</b> '+sub+'(saldo disponible para pagos − saldo pagado)</span></td><td class="r num" style="color:'+(dispB>=0?'#245e94':'#c0433f')+';font-weight:800">'+fmtBs(dispB)+usdu(U(dispB))+'</td></tr>'+
     ecSec('Pendiente de pago')+
     ecRow('·','Cremaciones sin pagar '+sub+'('+fmtNum(cremBasePendCount(),0)+' × '+fmtUsd(baseTarifaUsd())+')</span>',cremPendB,'#B07A00')+
@@ -2865,7 +2899,7 @@ function renderRentabilidad(){
   totRetIva=n2(totRetIva);totRetIslr=n2(totRetIslr);fondoBruto=n2(fondoBruto);
   var _cremUsdFix=n2((_spEC.cremUsd||0)+(segCremB-(_spEC.cremBs||0))/bh);
   var _trasUsdFix=n2((_spEC.trasUsd||0)+(segTrasB-(_spEC.trasBs||0))/bh);
-  var erogItems=[{l:'Retención IVA (abono)',v:totRetIva,c:'#9d6b2a'},{l:'Retención ISLR (abono)',v:totRetIslr,c:'#8a5f2a'},{l:'Timbre fiscal (1×1000)',v:retDonB,c:'#c98a1e'},{l:'Patente municipal',v:patB,c:'#c9781e'},{l:'IVA Seniat',v:ivaSB,c:'#b5762a'},{l:'Cremaciones (base)',v:segCremB,c:'#c0433f',usd:_cremUsdFix},{l:'Traslados (Org. Vallés del Tuy)',v:segTrasB,c:'#a13c38',usd:_trasUsdFix},{l:'Gastos de logística',v:segGastB,c:'#B07A00',usd:n2((gtE.pagUsd||0)+(gtE.pendUsd||0))},{l:'Operacionales (manipulación, etc.)',v:segOperB,c:'#7a5cc0'}].filter(function(x){return x.v>0.005;});
+  var erogItems=[{l:'Retención IVA (abono)',v:totRetIva,c:'#9d6b2a'},{l:'Retención ISLR (abono)',v:totRetIslr,c:'#8a5f2a'},{l:'Timbre fiscal (1×1000)',v:retDonB,c:'#c98a1e'},{l:'Patente municipal',v:patB,c:'#c9781e'},{l:'IVA Seniat',v:ivaSB,c:'#b5762a'},{l:'Cremaciones (base)',v:segCremB,c:'#c0433f',usd:_cremUsdFix},{l:'Traslados (Org. Vallés del Tuy)',v:segTrasB,c:'#a13c38',usd:_trasUsdFix},{l:'Gastos de logística',v:segGastB,c:'#B07A00',usd:n2((gtE.pagUsd||0)+(gtE.pendUsd||0))},{l:'Operacionales (manipulación, etc.)',v:segOperB,c:'#7a5cc0',usd:n2((opE.pagUsd||0)-(opE.trPagUsd||0)+(opE.pendUsd||0)-(opE.trPendUsd||0))}].filter(function(x){return x.v>0.005;});
   var totalErogUsd=n2(erogItems.reduce(function(s,x){return s+(x.usd!=null?x.usd:(bh?x.v/bh:0));},0));
   var _saldoDispUsd=n2((bh?fondoBruto/bh:0)-totalErogUsd);
   var totalErogB=n2(erogItems.reduce(function(s,x){return s+x.v;},0));
@@ -3336,7 +3370,7 @@ function exportGastoExcel(){
 function fillConfigForm(){
   document.getElementById('cfgEntidad').value=cfg.entidad;document.getElementById('cfgOperador').value=cfg.operador;document.getElementById('cfgConvenio').value=cfg.convenio||'';document.getElementById('cfgResponsable').value=cfg.responsable||'';document.getElementById('cfgFechaIni').value=cfg.fechaIni||'';document.getElementById('cfgTasa').value=cfg.tasa;
   document.getElementById('cfgTarifa').value=cfg.tarifaBase;document.getElementById('cfgIva').value=cfg.ivaPct;document.getElementById('cfgTraslado').value=cfg.traslado;
-  document.getElementById('cfgRetIva').value=cfg.retIvaPct;document.getElementById('cfgRetIslr').value=cfg.retIslrPct;
+  document.getElementById('cfgRetIva').value=cfg.retIvaPct;document.getElementById('cfgRetIslr').value=cfg.retIslrPct;var _ib=document.getElementById('cfgIslrFondoBox');if(_ib){var _m=cfg.retIslrFondo||{};_ib.innerHTML=fondos.map(function(f){return '<label style="font-size:12px;color:var(--slate);display:inline-flex;flex-direction:column;gap:3px">'+esc(f.nombre)+' (%)<input type="number" step="0.01" id="cfgIslrF_'+f.id+'" value="'+(_m[f.id]!=null?_m[f.id]:'')+'" placeholder="'+(Number(cfg.retIslrPct)||2)+'" style="width:120px;padding:6px 8px;border:1px solid var(--line);border-radius:7px"></label>';}).join('');}
   document.getElementById('cfgPatentePct').value=cfg.patentePct||0;document.getElementById('cfgIvaSeniatPct').value=cfg.ivaSeniatPct||0;
   renderChips();renderInstLogo();renderTasas();renderTraslados();renderGovTar();
 }
@@ -3466,7 +3500,7 @@ function addGovTarifa(){var d=dmy2iso(document.getElementById('govDesde').value)
 function delGovTarifa(i){if(!confirm('¿Eliminar esta vigencia?'))return;cfg.govTarifas.splice(i,1);save(K.cfg,cfg);_govEdit=-1;renderGovTar();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();}
 function saveTarifa(){
   var b=Number(document.getElementById('cfgTarifa').value),iv=Number(document.getElementById('cfgIva').value),tr=Number(document.getElementById('cfgTraslado').value);
-  var ri=Number(document.getElementById('cfgRetIva').value),ris=Number(document.getElementById('cfgRetIslr').value);
+  var ri=Number(document.getElementById('cfgRetIva').value),ris=Number(document.getElementById('cfgRetIslr').value);var _rf={};fondos.forEach(function(f){var e=document.getElementById('cfgIslrF_'+f.id);if(e&&String(e.value).trim()!=='')_rf[f.id]=Number(e.value)||0;});cfg.retIslrFondo=_rf;
   var pat=Number(document.getElementById('cfgPatentePct').value)||0,ivas=Number(document.getElementById('cfgIvaSeniatPct').value)||0;
   if(!(b>=0)||!(iv>=0)||!(tr>=0)||!(ri>=0)||!(ris>=0)||!(pat>=0)||!(ivas>=0)){toast('Valores inválidos');return;}
   cfg.tarifaBase=b;cfg.ivaPct=iv;cfg.traslado=tr;cfg.retIvaPct=ri;cfg.retIslrPct=ris;cfg.patentePct=n2(pat);cfg.ivaSeniatPct=n2(ivas);save(K.cfg,cfg);refreshHeader();renderCrem();renderPagos();renderDashboard();if(document.getElementById('rentabilidadHost'))renderRentabilidad();toast('Tarifas y retenciones guardadas');
