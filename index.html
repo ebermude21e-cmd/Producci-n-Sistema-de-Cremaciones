@@ -396,7 +396,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="side-group">Sistema</div>
       <button data-view="config">Configuración</button>
     </nav>
-    <div class="side-foot">Control de Cremaciones · v9.40</div>
+    <div class="side-foot">Control de Cremaciones · v9.42</div>
   </aside>
   <div class="sidebar-scrim" id="sideScrim" onclick="toggleSide(false)"></div>
   <div class="mainarea">
@@ -440,6 +440,8 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="pb">
         <div class="grouplbl first">Cremaciones por crematorio</div>
         <div id="barsCrem"></div>
+        <div class="grouplbl">Traslados incurridos</div>
+        <div id="barsTrasPP"></div>
         <div class="grouplbl">Gastos de logística</div>
         <div id="barsGastosPP"></div>
         <div class="grouplbl">Pagos operacionales (funerarias / carroceros)</div>
@@ -1644,7 +1646,7 @@ function trasladoUnitConIva(){var t=Number(cfg.trasladoTarifa);if(isNaN(t))t=80;
 function trasladoComprometidoUsd(){return n2(cuerposVallesTuy()*trasladoUnitConIva());}
 function _trasladosIncurridosRaw(){
   var bh=bcvHoyRate()||Number(cfg.tasa)||1,unit=trasladoUnitConIva();
-  var pagBs=n2(pagosSplit().trasBs),pagUsd=n2(pagBs/bh);
+  var _spTr=pagosSplit(),pagBs=n2(_spTr.trasBs),pagUsd=n2(_spTr.trasUsd);
   var n=cuerposVallesTuy(),nPaid=cuerposVallesTuyPagados(),pendCount=Math.max(0,n-nPaid);
   var pendUsd=n2(pendCount*unit),comprometido=n2(pagUsd+pendUsd);
   return {rows:[{crematorio:'Organización Vallés del Tuy',unit:unit,vPaid:nPaid,pct:n2(n>0?nPaid/n*100:0),vPendEst:pendCount,pagUsd:pagUsd,pendUsd:pendUsd,totalUsd:comprometido}],pagUsd:pagUsd,pagUsdTeorico:comprometido,pendUsd:pendUsd,totalUsd:comprometido};
@@ -3032,6 +3034,8 @@ function renderDashboard(){
       '<span class="pd" style="color:#9d2f2c">'+pendLbl+' · '+fmtUsd(pendUsd)+'<span class="sw" style="background:#c0433f"></span></span></div></div>';
   }
   var gt=gastosTotals(),op=opTotals();
+  var _tiPP=trasladosIncurridos(),_tiPaidN=(_tiPP.rows||[]).reduce(function(a,r){return a+(Number(r.vPaid)||0);},0),_tiPendN=(_tiPP.rows||[]).reduce(function(a,r){return a+(Number(r.vPendEst)||0);},0);
+  document.getElementById('barsTrasPP').innerHTML=(_tiPP.pagUsd||_tiPP.pendUsd)?ppBarMonto('Traslados incurridos (crematorios con traslado en factura)',_tiPP.pagUsd,_tiPP.pendUsd,'Pagado: '+_tiPaidN+' traslados','Pendiente: '+_tiPendN+' traslados'):'<div class="empty" style="padding:8px;font-size:12px">Sin traslados incurridos.</div>';
   document.getElementById('barsGastosPP').innerHTML=(gt.pagUsd||gt.pendUsd)?ppBarMonto('Gastos de logística',gt.pagUsd,gt.pendUsd,'Pagado: '+gt.pagN+' gasto(s)','Pendiente: '+gt.pendN+' gasto(s)'):'<div class="empty" style="padding:8px;font-size:12px">Sin gastos registrados.</div>';
   document.getElementById('barsOperPP').innerHTML=(op.pagUsd||op.pendUsd)?ppBarMonto('Traslados y manipulación (funerarias/carroceros)',op.pagUsd,op.pendUsd,'Pagado: '+op.pagN+' · '+op.trPagCu+' cuerpos','Pendiente: '+op.pendN+' · '+op.trPendCu+' cuerpos'):'<div class="empty" style="padding:8px;font-size:12px">Sin pagos operacionales.</div>';
 
