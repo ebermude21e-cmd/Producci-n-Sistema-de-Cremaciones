@@ -396,7 +396,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="side-group">Sistema</div>
       <button data-view="config">Configuración</button>
     </nav>
-    <div class="side-foot">Control de Cremaciones · v9.57</div>
+    <div class="side-foot">Control de Cremaciones · v9.59</div>
   </aside>
   <div class="sidebar-scrim" id="sideScrim" onclick="toggleSide(false)"></div>
   <div class="mainarea">
@@ -850,6 +850,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <label class="fld">Tasa BCV del día (Bs/USD)<input type="number" step="0.0001" id="fGastoTasa" oninput="calcGastoUsd()"></label>
       <label class="fld">Forma de pago<input id="fGastoForma" placeholder="Transferencia, efectivo…"></label>
       <label class="fld">Estado<select id="fGastoEstado"><option value="pagado">Pagado</option><option value="pendiente">Pendiente de pago</option></select></label>
+      <label class="fld">Imputar al fondo<select id="fGastoFondo"><option value="">Automático (por fecha del gasto)</option></select></label>
       <label class="fld span2">Observaciones<textarea id="fGastoObs" rows="2"></textarea></label>
       <label class="fld span2" style="flex-direction:row;align-items:center;gap:9px;cursor:pointer;background:#e4f4f2;border:1px solid #bfe6e1;border-radius:9px;padding:10px 12px"><input type="checkbox" id="fGastoUsdt" style="width:17px;height:17px;accent-color:#0e9488"><span style="font-size:12.5px;font-weight:600;color:#0b5f58">Cancelado con fondos USDT</span></label>
     </div>
@@ -1855,8 +1856,16 @@ function finSub(which){_finSub=which;
   else if(which==='fondos')renderFondos();
   finSummary(which);
 }
+function fondoBreak(fn){
+  // Desglose por fondo (dinámico: sirve para 2 o N fondos). Cada fondo con su propio cálculo aislado.
+  return fondos.map(function(f){return {nom:f.nombre,val:_conFondo(f.id,fn)};});
+}
+function fondoBreakLbl(fn,fmt){
+  var parts=fondoBreak(fn).map(function(o){return '<span style="white-space:nowrap"><b style="color:var(--tp)">'+esc(o.nom)+':</b> '+fmt(o.val)+'</span>';});
+  return '<div style="font-size:10.5px;color:var(--slate);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.5">'+parts.join('')+'</div>';
+}
 function finSummaryCard(items){
-  return '<div style="display:flex;flex-wrap:wrap;gap:0;background:#fff;border:1px solid var(--line-2);border-radius:12px;overflow:hidden">'+items.map(function(x,i){return '<div style="flex:1;min-width:150px;padding:12px 18px;border-right:'+(i<items.length-1?'1px solid var(--line-2)':'none')+';border-top:3px solid '+x.c+'"><div style="font-size:10.5px;color:var(--slate);font-weight:700;text-transform:uppercase;letter-spacing:.03em">'+x.l+'</div><div class="num" style="font-size:18px;font-weight:800;color:'+x.c+';margin-top:5px">'+x.bs+'</div><div class="num" style="font-size:12px;color:#8a879c;margin-top:2px">'+x.usd+'</div></div>';}).join('')+'</div>';
+  return '<div style="display:flex;flex-wrap:wrap;gap:0;background:#fff;border:1px solid var(--line-2);border-radius:12px;overflow:hidden">'+items.map(function(x,i){return '<div style="flex:1;min-width:150px;padding:12px 18px;border-right:'+(i<items.length-1?'1px solid var(--line-2)':'none')+';border-top:3px solid '+x.c+'"><div style="font-size:10.5px;color:var(--slate);font-weight:700;text-transform:uppercase;letter-spacing:.03em">'+x.l+'</div><div class="num" style="font-size:18px;font-weight:800;color:'+x.c+';margin-top:5px">'+x.bs+'</div><div class="num" style="font-size:12px;color:#8a879c;margin-top:2px">'+x.usd+'</div>'+(x.sub||'')+'</div>';}).join('')+'</div>';
 }
 function finSummary(which){
   var host=document.getElementById('finSummary');if(!host)return;var build=function(){var h='';
@@ -1865,11 +1874,12 @@ function finSummary(which){
     h=finSummaryCard([{l:'Total facturado',bs:fmtBs(n2(sTot)),usd:fmtNum(ingresos.length,0)+' abono(s)',c:'#0D7A4E'},{l:'Retenciones (IVA+ISLR)',bs:fmtBs(n2(sRet)),usd:'IVA 75% + ISLR 2%',c:'#B07A00'},{l:'Neto recibido (fondo)',bs:fmtBs(n2(sNeto)),usd:fmtUsd(n2(sUsd)),c:'#245e94'},{l:'Tributos del fondo',bs:fmtBs(tribA),usd:'patente + IVA Seniat + retenciones',c:'#B07A00'},{l:'Saldo Disponible para pagos',bs:fmtBs(saldoDispA),usd:fmtUsd(n2(saldoDispA/bhA)),c:'#4B2D8F'}]);
   }else if(which==='pagos'){var pb=pagosCremBs(),pu=pagosCremUsd(),tb=pagosCremPagBs(),cant=0;pagos.forEach(function(p){cant+=Number(p.cantidad)||0;});
     var bhP=bcvHoyRate()||Number(cfg.tasa)||1;var pendCU=cremBasePendUsd(),pendCB=n2(pendCU*bhP);
-    h=finSummaryCard([{l:'Total con IVA',bs:fmtBs(pb),usd:fmtUsd(pu),c:'#9d2f2c'},{l:'Transferido',bs:fmtBs(tb),usd:fmtNum(pagos.length,0)+' pago(s)',c:'#245e94'},{l:'Cremaciones pagadas',bs:fmtNum(cant,0),usd:'validadas',c:'#0D7A4E'},{l:'Pendiente por pagar',bs:fmtBs(pendCB),usd:fmtUsd(pendCU),c:'#B07A00'}]);
-  }else if(which==='oper'){var op=opTotals();
-    h=finSummaryCard([{l:'Total operacional',bs:fmtBs(n2(op.pagBs+op.pendBs)),usd:fmtUsd(n2(op.pagUsd+op.pendUsd)),c:'#4B2D8F'},{l:'Pagado',bs:fmtBs(op.pagBs),usd:fmtUsd(op.pagUsd),c:'#0D7A4E'},{l:'Pendiente',bs:fmtBs(op.pendBs),usd:fmtUsd(op.pendUsd),c:'#B07A00'},{l:'Cuerpos',bs:fmtNum(op.cuerpos,0),usd:'trasladados',c:'#245e94'}]);
-  }else if(which==='gastos'){var gt=gastosTotals();
-    h=finSummaryCard([{l:'Total gastos',bs:fmtBs(n2(gt.pagBs+gt.pendBs)),usd:fmtUsd(n2(gt.pagUsd+gt.pendUsd)),c:'#8a5e00'},{l:'Pagado',bs:fmtBs(gt.pagBs),usd:fmtUsd(gt.pagUsd),c:'#0D7A4E'},{l:'Pendiente',bs:fmtBs(gt.pendBs),usd:fmtUsd(gt.pendUsd),c:'#B07A00'}]);
+    var _bk=(!_scopeFondo||_scopeFondo==='general');
+    h=finSummaryCard([{l:'Total con IVA',bs:fmtBs(pb),usd:fmtUsd(pu),c:'#9d2f2c',sub:_bk?fondoBreakLbl(function(){var t=0;pagos.forEach(function(p){t+=Number(p.total)||0;});return n2(t);},fmtBs):''},{l:'Transferido',bs:fmtBs(tb),usd:fmtNum(pagos.length,0)+' pago(s)',c:'#245e94',sub:_bk?fondoBreakLbl(function(){var t=0;pagos.forEach(function(p){t+=Number(p.transferBs!=null?p.transferBs:p.total)||0;});return n2(t);},fmtBs):''},{l:'Cremaciones pagadas',bs:fmtNum(cant,0),usd:'validadas',c:'#0D7A4E',sub:_bk?fondoBreakLbl(function(){var c=0;pagos.forEach(function(p){c+=Math.round(Number(p.cantidad)||0);});return c;},function(v){return fmtNum(v,0);}):''},{l:'Pendiente por pagar',bs:fmtBs(pendCB),usd:fmtUsd(pendCU),c:'#B07A00'}]);
+  }else if(which==='oper'){var op=opTotals();var _bk=(!_scopeFondo||_scopeFondo==='general');
+    h=finSummaryCard([{l:'Total operacional',bs:fmtBs(n2(op.pagBs+op.pendBs)),usd:fmtUsd(n2(op.pagUsd+op.pendUsd)),c:'#4B2D8F',sub:_bk?fondoBreakLbl(function(){var t=opTotals();return n2(t.pagBs+t.pendBs);},fmtBs):''},{l:'Pagado',bs:fmtBs(op.pagBs),usd:fmtUsd(op.pagUsd),c:'#0D7A4E',sub:_bk?fondoBreakLbl(function(){return opTotals().pagBs;},fmtBs):''},{l:'Pendiente',bs:fmtBs(op.pendBs),usd:fmtUsd(op.pendUsd),c:'#B07A00',sub:_bk?fondoBreakLbl(function(){return opTotals().pendBs;},fmtBs):''},{l:'Cuerpos',bs:fmtNum(op.cuerpos,0),usd:'trasladados',c:'#245e94'}]);
+  }else if(which==='gastos'){var gt=gastosTotals();var _bk=(!_scopeFondo||_scopeFondo==='general');
+    h=finSummaryCard([{l:'Total gastos',bs:fmtBs(n2(gt.pagBs+gt.pendBs)),usd:fmtUsd(n2(gt.pagUsd+gt.pendUsd)),c:'#8a5e00',sub:_bk?fondoBreakLbl(function(){var t=gastosTotals();return n2(t.pagBs+t.pendBs);},fmtBs):''},{l:'Pagado',bs:fmtBs(gt.pagBs),usd:fmtUsd(gt.pagUsd),c:'#0D7A4E',sub:_bk?fondoBreakLbl(function(){return gastosTotals().pagBs;},fmtBs):''},{l:'Pendiente',bs:fmtBs(gt.pendBs),usd:fmtUsd(gt.pendUsd),c:'#B07A00',sub:_bk?fondoBreakLbl(function(){return gastosTotals().pendBs;},fmtBs):''}]);
   }
   return h;};
   var h=(!_scopeFondo||_scopeFondo==='general')?build():_conFondo(_scopeFondo,build);
@@ -2164,7 +2174,7 @@ function importCremExcel(ev){
   rd.onload=function(){
     try{
       var wb=XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true});
-      var nuevos=[],updates={},errores=[],warnings=[],nuevosCrem=[],porHoja=[],sinDatos=[];
+      var nuevos=[],updates={},errores=[],warnings=[],nuevosCrem=[],porHoja=[],sinDatos=[];var nomAuto=0,nomSin=0;
       var exIdx={};cremaciones.forEach(function(r){var k=cremKey(r.cod,r.exp,r.nombre,r.crematorio);(exIdx[k]=exIdx[k]||[]).push(r.id);});
       var seen={};
       wb.SheetNames.forEach(function(sheetName){
@@ -2185,11 +2195,13 @@ function importCremExcel(ev){
           var cod=map.cod!=null?String(row[map.cod]||'').trim():'';
           var exp=map.exp!=null?String(row[map.exp]||'').trim():'';
           var fecha=normDate(row[map.fecha]);
-          if(!nombre&&!cremRaw&&!cod)continue;
-          if(esFilaEtiqueta(nombre,cremRaw))continue;
+          if(!nombre&&!cremRaw&&!cod&&!exp)continue;
+          if(nombre&&esFilaEtiqueta(nombre,cremRaw))continue;
+          /* Nombre ausente o 'sin nombre': se completa desde el padron por expediente. Si no aparece, queda SIN NOMBRE. Nunca se rechaza la fila. */
+          if(esNombreVacio(nombre)){var _pn=padronNombreDe(exp);nombre=_pn||'SIN NOMBRE';if(_pn)nomAuto++;else nomSin++;}
           var crem=resolveCrem(cremRaw);var pendingNew=null;
           if(!crem&&cremRaw){crem=cremRaw;pendingNew=cremRaw;}
-          if(!nombre||!crem){errores.push({hoja:sheetName,fila:r+1,difunto:nombre||'(sin nombre)',motivo:(!nombre?'Falta nombre del difunto. ':'')+(!crem?'Falta crematorio.':'')});omit++;continue;}
+          if(!crem){errores.push({hoja:sheetName,fila:r+1,difunto:nombre||'(sin nombre)',motivo:(!nombre?'Falta nombre del difunto. ':'')+(!crem?'Falta crematorio.':'')});omit++;continue;}
           if(pendingNew&&crematorios.indexOf(pendingNew)<0&&nuevosCrem.indexOf(pendingNew)<0)nuevosCrem.push(pendingNew);
           var rec={fecha:fecha,exp:exp,cod:cod,nombre:nombre,crematorio:crem,lote:loteLabel,fechaLote:fechaLote};
           var k=cremKey(cod,exp,nombre,crem);
@@ -2203,7 +2215,7 @@ function importCremExcel(ev){
       var totalUpd=Object.keys(updates).length;
       if(!nuevos.length&&!totalUpd&&!errores.length){alert('No se encontró ninguna hoja con el formato de cremaciones (columnas Fecha, Nombre del Difunto, Crematorio).'+(sinDatos.length?'\nHojas revisadas: '+sinDatos.join(', '):''));return;}
       var setFinal=nuevos.concat(Object.keys(updates).map(function(id){return updates[id];}));
-      _importPreview={fname:fname,nuevos:nuevos,updates:updates,errores:errores,warnings:warnings,nuevosCrem:nuevosCrem,porHoja:porHoja,sinDatos:sinDatos,totalUsd:setFinal.reduce(function(s,v){return s+tarifaUsd(v.crematorio);},0)};
+      _importPreview={fname:fname,nuevos:nuevos,updates:updates,errores:errores,warnings:warnings,nuevosCrem:nuevosCrem,porHoja:porHoja,sinDatos:sinDatos,nomAuto:nomAuto,nomSin:nomSin,totalUsd:setFinal.reduce(function(s,v){return s+tarifaUsd(v.crematorio);},0)};
       renderImportReport();
     }catch(e){alert('No se pudo leer el archivo: '+e.message);}
   };
@@ -2214,6 +2226,7 @@ function renderImportReport(){
   var totalUpd=Object.keys(P.updates).length;
   var h='<div style="padding:16px 18px">';
   h+='<div style="font-size:13px;color:var(--slate);margin-bottom:6px">Archivo: <b style="color:var(--ink)">'+esc(P.fname)+'</b></div>';
+  if(P.nomAuto||P.nomSin){h+='<div class="ecnote" style="margin:0 0 10px">'+(P.nomAuto?('<b style="color:#0D7A4E">'+fmtNum(P.nomAuto,0)+'</b> nombre(s) completado(s) autom\u00e1ticamente desde el padr\u00f3n por su c\u00f3digo de expediente. '):'')+(P.nomSin?('<b style="color:#B07A00">'+fmtNum(P.nomSin,0)+'</b> qued\u00f3(aron) como <b>SIN NOMBRE</b> (el expediente no aparece en el padr\u00f3n). '):'')+'Ninguna fila fue rechazada por este motivo.</div>';}
   h+='<div class="summbar" style="margin:0 0 14px"><span style="color:#0D7A4E">Nuevos: <b>'+fmtNum(P.nuevos.length,0)+'</b></span><div class="sep"></div><span>Actualizados: <b>'+fmtNum(totalUpd,0)+'</b></span><div class="sep"></div><span>Monto del archivo: <b class="num">'+fmtUsd(P.totalUsd)+'</b></span><div class="sep"></div><span class="err">Omitidas: <b>'+P.errores.length+'</b></span></div>';
   h+='<div style="font-size:12px;color:var(--slate);margin-bottom:14px">Los registros ya existentes (por código, expediente o nombre+crematorio) se <b>actualizan</b>; no se duplican. Los registros del sistema que no estén en el archivo se conservan.</div>';
   h+='<h4 style="margin:0 0 6px;color:var(--ink)">Por hoja / lote</h4><table style="margin-bottom:14px"><thead><tr><th>Hoja</th><th>Lote</th><th>Nuevos</th><th>Actualizados</th><th>Omitidas</th></tr></thead><tbody>';
@@ -2427,9 +2440,9 @@ function exportPagosExcel(){
 /* ===== GASTOS ===== */
 function calcGastoUsd(){document.getElementById('fGastoUsdOut').textContent=fmtUsd(usdOf(document.getElementById('fGastoBs').value,document.getElementById('fGastoTasa').value));}
 function gastoFechaChange(){var f=document.getElementById('fGastoFecha').value;var r=bcvRate(f);if(r>0)document.getElementById('fGastoTasa').value=r;calcGastoUsd();}
-function openGasto(id){refreshSelects();
+function openGasto(id){refreshSelects();var _gf=document.getElementById('fGastoFondo');if(_gf&&window.fillFondoSel)fillFondoSel(_gf,'');
   if(id){var r=gastos.find(function(x){return x.id===id;});if(!r)return;
-    document.getElementById('mGastoTitle').textContent='Editar gasto';document.getElementById('fGastoId').value=r.id;document.getElementById('fGastoFecha').value=r.fecha;document.getElementById('fGastoCat').value=r.cat;document.getElementById('fGastoComp').value=r.comp||'';document.getElementById('fGastoConcepto').value=r.concepto;document.getElementById('fGastoProv').value=r.prov||'';document.getElementById('fGastoBs').value=r.bs;document.getElementById('fGastoTasa').value=r.tasa;document.getElementById('fGastoForma').value=r.forma||'';document.getElementById('fGastoEstado').value=r.estado||'pagado';document.getElementById('fGastoObs').value=r.obs||'';document.getElementById('fGastoUsdt').checked=!!r.usdtPagado;
+    document.getElementById('mGastoTitle').textContent='Editar gasto';document.getElementById('fGastoId').value=r.id;document.getElementById('fGastoFecha').value=r.fecha;document.getElementById('fGastoCat').value=r.cat;document.getElementById('fGastoComp').value=r.comp||'';document.getElementById('fGastoConcepto').value=r.concepto;document.getElementById('fGastoProv').value=r.prov||'';if(_gf)_gf.value=r.fondoId||'';document.getElementById('fGastoBs').value=r.bs;document.getElementById('fGastoTasa').value=r.tasa;document.getElementById('fGastoForma').value=r.forma||'';document.getElementById('fGastoEstado').value=r.estado||'pagado';document.getElementById('fGastoObs').value=r.obs||'';document.getElementById('fGastoUsdt').checked=!!r.usdtPagado;
   }else{document.getElementById('mGastoTitle').textContent='Nuevo gasto operativo';['fGastoId','fGastoComp','fGastoConcepto','fGastoProv','fGastoBs','fGastoForma','fGastoObs'].forEach(function(i){document.getElementById(i).value='';});document.getElementById('fGastoEstado').value='pagado';document.getElementById('fGastoUsdt').checked=false;var hoy=today();document.getElementById('fGastoFecha').value=hoy;document.getElementById('fGastoTasa').value=bcvRate(hoy)||cfg.tasa;}
   calcGastoUsd();document.getElementById('modalGasto').classList.add('open');
 }
@@ -2437,7 +2450,7 @@ function saveGasto(){
   var concepto=document.getElementById('fGastoConcepto').value.trim(),fecha=document.getElementById('fGastoFecha').value,bs=document.getElementById('fGastoBs').value,tasa=document.getElementById('fGastoTasa').value;
   if(!tasa||Number(tasa)<=0)tasa=bcvRate(fecha);
   if(!fecha||!concepto||!bs||!tasa){toast('Complete los campos obligatorios (*)');return;}
-  var rec={id:document.getElementById('fGastoId').value||uid(),fecha:fecha,cat:document.getElementById('fGastoCat').value,concepto:concepto,prov:document.getElementById('fGastoProv').value.trim(),bs:n2(bs),tasa:Number(tasa),forma:document.getElementById('fGastoForma').value.trim(),comp:document.getElementById('fGastoComp').value.trim(),estado:document.getElementById('fGastoEstado').value,obs:document.getElementById('fGastoObs').value.trim(),usdtPagado:!!document.getElementById('fGastoUsdt').checked};
+  var rec={id:document.getElementById('fGastoId').value||uid(),fecha:fecha,cat:document.getElementById('fGastoCat').value,concepto:concepto,prov:document.getElementById('fGastoProv').value.trim(),bs:n2(bs),tasa:Number(tasa),forma:document.getElementById('fGastoForma').value.trim(),comp:document.getElementById('fGastoComp').value.trim(),estado:document.getElementById('fGastoEstado').value,fondoId:((document.getElementById('fGastoFondo')||{}).value||''),obs:document.getElementById('fGastoObs').value.trim(),usdtPagado:!!document.getElementById('fGastoUsdt').checked};
   var i=gastos.findIndex(function(x){return x.id===rec.id;});if(i>=0)gastos[i]=rec;else gastos.push(rec);
   save(K.gasto,gastos);closeModal('modalGasto');renderGasto();renderDashboard();toast('Gasto guardado');
 }
@@ -2559,6 +2572,9 @@ function colIndexPadron(hs){var m={};hs.forEach(function(h,i){var n=normStr(h);
   else if(n.indexOf('destino')>=0)m.destino=i;
   else if(n.indexOf('registro')>=0)m.freg=i;
 });return m;}
+function esNombreVacio(v){var x=normStr(v);if(!x)return true;return ['sin nombre','sinnombre','sin identificar','no identificado','desconocido','s/n','sn','n/a','na','-','.','','pendiente'].indexOf(x)>=0;}
+function padronNombreDe(exp){if(!exp)return '';var k=normExp(exp);if(!k)return '';var hit=padron.find(function(p){return normExp(p.code)===k;});if(!hit){var k2=padronKey(exp);hit=padron.find(function(p){return padronKey(p.code)===k2;});}
+ return hit&&String(hit.nombre||'').trim()?String(hit.nombre).trim():'';}
 function padronKey(code){return String(code==null?'':code).toUpperCase().replace(/\s+/g,' ').trim();}
 var _padronPreview=null;
 function importPadronExcel(ev){
@@ -3659,8 +3675,8 @@ function addCategoria(){var v=document.getElementById('newCat').value.trim();if(
 function delCategoria(i){var c=cats[i];if(gastos.some(function(r){return r.cat===c;})&&!confirm('Hay gastos en "'+c+'". ¿Quitar? Los registros existentes se conservan.'))return;cats.splice(i,1);save(K.cats,cats);renderChips();refreshSelects();}
 
 /* ===== Backup ===== */
-function exportJSON(){var data={version:6,exported:new Date().toISOString(),cfg:cfg,crematorios:crematorios,cats:cats,logos:logos,cremaciones:cremaciones,pagos:pagos,gastos:gastos,tasas:tasas,padron:padron,padronMeta:padronMeta,ingresos:ingresos,fondos:fondos};var blob=new Blob([JSON.stringify(data)],{type:'application/json'});downloadBlob(blob,'respaldo_cremaciones_'+today()+'.json');toast('Respaldo exportado');}
-function importJSON(ev){var f=ev.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var d=JSON.parse(rd.result);if(!confirm('Esto reemplazará todos los datos actuales por los del respaldo. ¿Continuar?'))return;if(d.cfg)cfg=Object.assign({},DEFAULT_CFG,d.cfg);if(Array.isArray(d.crematorios))crematorios=d.crematorios;if(Array.isArray(d.cats))cats=d.cats;if(d.logos&&typeof d.logos==='object')logos=d.logos;if(Array.isArray(d.cremaciones))cremaciones=d.cremaciones;if(Array.isArray(d.pagos))pagos=d.pagos;if(Array.isArray(d.gastos))gastos=d.gastos;if(d.tasas&&typeof d.tasas==='object')tasas=d.tasas;if(Array.isArray(d.padron))padron=d.padron;if(d.padronMeta&&typeof d.padronMeta==='object')padronMeta=d.padronMeta;if(Array.isArray(d.ingresos))ingresos=d.ingresos;if(Array.isArray(d.fondos)&&d.fondos.length)fondos=d.fondos;ensureFondo2();if(!fondos.some(function(f){return f.id===activeFundId;}))activeFundId=(fondos.find(function(f){return f.principal;})||fondos[0]).id;save(K.fondoActivo,activeFundId);save(K.fondos,fondos);save(K.ingresos,ingresos);save(K.padron,padron);save(K.padronMeta,padronMeta);save(K.tasas,tasas);save(K.cfg,cfg);save(K.crematorios,crematorios);save(K.cats,cats);save(K.logos,logos);save(K.crem,cremaciones);save(K.pagos,pagos);save(K.gasto,gastos);refreshSelects();fillConfigForm();refreshHeader();renderCrem();renderPagos();renderGasto();renderDashboard();toast('Respaldo importado');}catch(e){alert('Archivo inválido: '+e.message);}};rd.readAsText(f);ev.target.value='';}
+function exportJSON(){var data={version:7,exported:new Date().toISOString(),cfg:cfg,crematorios:crematorios,cats:cats,logos:logos,cremaciones:cremaciones,pagos:pagos,gastos:gastos,tasas:tasas,padron:padron,padronMeta:padronMeta,ingresos:ingresos,fondos:fondos,opActores:opActores,opConceptos:opConceptos,opPagos:opPagos,usdtOps:usdtOps,tasasUsdt:tasasUsdt};var blob=new Blob([JSON.stringify(data)],{type:'application/json'});downloadBlob(blob,'respaldo_cremaciones_'+today()+'.json');toast('Respaldo exportado');}
+function importJSON(ev){var f=ev.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var d=JSON.parse(rd.result);if(!confirm('Esto reemplazará todos los datos actuales por los del respaldo. ¿Continuar?'))return;if(d.cfg)cfg=Object.assign({},DEFAULT_CFG,d.cfg);if(Array.isArray(d.crematorios))crematorios=d.crematorios;if(Array.isArray(d.cats))cats=d.cats;if(d.logos&&typeof d.logos==='object')logos=d.logos;if(Array.isArray(d.cremaciones))cremaciones=d.cremaciones;if(Array.isArray(d.pagos))pagos=d.pagos;if(Array.isArray(d.gastos))gastos=d.gastos;if(d.tasas&&typeof d.tasas==='object')tasas=d.tasas;if(Array.isArray(d.padron))padron=d.padron;if(d.padronMeta&&typeof d.padronMeta==='object')padronMeta=d.padronMeta;if(Array.isArray(d.ingresos))ingresos=d.ingresos;if(Array.isArray(d.fondos)&&d.fondos.length)fondos=d.fondos;if(Array.isArray(d.opActores))opActores=d.opActores;if(Array.isArray(d.opConceptos))opConceptos=d.opConceptos;if(Array.isArray(d.opPagos))opPagos=d.opPagos;if(Array.isArray(d.usdtOps))usdtOps=d.usdtOps;if(d.tasasUsdt&&typeof d.tasasUsdt==='object')tasasUsdt=d.tasasUsdt;ensureFondo2();if(!fondos.some(function(f){return f.id===activeFundId;}))activeFundId=(fondos.find(function(f){return f.principal;})||fondos[0]).id;save(K.fondoActivo,activeFundId);save(K.fondos,fondos);save(K.ingresos,ingresos);save(K.padron,padron);save(K.padronMeta,padronMeta);save(K.tasas,tasas);save(K.cfg,cfg);save(K.crematorios,crematorios);save(K.cats,cats);save(K.logos,logos);save(K.crem,cremaciones);save(K.pagos,pagos);save(K.gasto,gastos);save(K.opActores,opActores);save(K.opConceptos,opConceptos);save(K.opPagos,opPagos);save(K.usdtOps,usdtOps);save(K.tasasUsdt,tasasUsdt);refreshSelects();fillConfigForm();refreshHeader();renderCrem();renderPagos();renderGasto();try{renderOper();}catch(e){}try{renderUsdt();}catch(e){}renderDashboard();toast('Respaldo importado');}catch(e){alert('Archivo inválido: '+e.message);}};rd.readAsText(f);ev.target.value='';}
 function wipeCremaciones(){if(!confirm('¿Borrar TODAS las cremaciones cargadas? Se conservan pagos, gastos, abonos y padrón. Exporte un respaldo antes.'))return;if(!confirm('Confirmación final: se eliminarán todas las cremaciones de este equipo.'))return;cremaciones=[];save(K.crem,cremaciones);renderCrem();renderDashboard();renderPagos();if(document.getElementById('rentabilidadHost'))renderRentabilidad();if(document.getElementById('conciliacionHost'))renderConciliacion();toast('Cremaciones borradas');}
 function reiniciarCero(){
   if(!confirm('¿Reiniciar el sistema a CERO para un ambiente nuevo?\n\nSe borran TODOS los registros (cremaciones, pagos, gastos, abonos, padrón, operacionales, USDT) y se limpian las tasas de cambio y las tarifas a la Gobernación, incluidos los precios por fondo. Los fondos y la tarifa base se conservan.\n\nExporte un respaldo antes. Esta acción no se puede deshacer.'))return;
