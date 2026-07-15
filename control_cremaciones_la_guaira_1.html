@@ -396,7 +396,7 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
       <div class="side-group">Sistema</div>
       <button data-view="config">Configuración</button>
     </nav>
-    <div class="side-foot">Control de Cremaciones · v9.64</div>
+    <div class="side-foot">Control de Cremaciones · v9.68</div>
   </aside>
   <div class="sidebar-scrim" id="sideScrim" onclick="toggleSide(false)"></div>
   <div class="mainarea">
@@ -862,6 +862,20 @@ table.flujo tr.saldo td{border-top:2px solid var(--tp);font-weight:800}
   <div class="mf"><button class="btn ghost" onclick="closeModal('modalGasto')">Cancelar</button><button class="btn" onclick="saveGasto()">Guardar gasto</button></div>
 </div></div>
 
+<!-- Modal Imprimir relacion -->
+<div class="modal-bg" id="modalRelPrint"><div class="modal" style="max-width:520px">
+  <div class="mh"><h3>Imprimir relación de servicios</h3><button class="xbtn" onclick="closeModal('modalRelPrint')">×</button></div>
+  <div class="mb">
+    <div class="ecnote" style="margin:0 0 14px">Seleccione qué desea imprimir. Cada relación se genera en un documento independiente.</div>
+    <label class="fld">Relación a imprimir<select id="relPrintSel" onchange="relPrintToggle()"></select></label>
+    <label id="relPrintRecWrap" style="display:flex;align-items:center;gap:9px;margin-top:14px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="relPrintRec" style="width:16px;height:16px;cursor:pointer">
+      <span>Incluir el <b>recibo del fondo</b> en la primera hoja</span></label>
+    <div id="relPrintRecNota" style="font-size:11.5px;color:var(--slate);margin-top:6px;padding-left:25px"></div>
+  </div>
+  <div class="mf"><button class="btn ghost" onclick="closeModal('modalRelPrint')">Cancelar</button><button class="btn gold" onclick="relPrintGo()">🖨 Generar</button></div>
+</div></div>
+
 <!-- Modal Import pagos operacionales -->
 <div class="modal-bg" id="modalOperImport"><div class="modal" style="max-width:640px">
   <div class="mh"><h3>Revisión de la carga de pagos operacionales</h3><button class="xbtn" onclick="closeModal('modalOperImport')">×</button></div>
@@ -1316,6 +1330,9 @@ function renderUsdtCorte(){
   acc+='<div style="display:grid;grid-template-columns:24px 1fr auto;gap:12px;align-items:center;padding:14px 18px;background:#f3eefb"><span></span><span style="font-weight:800;color:#231640;font-size:13px">TOTAL PAGADO CON FONDOS USDT</span><span class="num" style="font-weight:800;color:#231640;font-size:15px;text-align:right">'+fmtBs(d.totalPag)+'<div style="font-size:10.5px;color:var(--slate)">'+fmtNum(uV(d.totalPag),2)+' USDT'+'</div></span></div></div>';
   host.innerHTML='<div class="ec-sec-title" style="font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#4B2D8F;margin:0 0 12px">Estado de cuenta del manejo de USDT</div>'+hero+acc;
 }
+/* Etiqueta institucional para las pantallas de la Gobernacion.
+   NO altera el nombre interno del fondo (Finanzas, Rentabilidad, etc. lo conservan). Solo display. */
+function fondoLblGob(fd,idx){return 'Fondo '+(idx+1)+' \u2014 '+(fd&&fd.principal?'Funeraria Vall\u00e9s':'Seguros La Fe');}
 function declaradasData(){
   // Recorre la MISMA fuente que la relacion oficial (ctasRelacionData) y verifica unicidad caso por caso.
   var d=ctasRelacionData();
@@ -1325,7 +1342,7 @@ function declaradasData(){
       var k=padronKey(c.exp)+'|'+padronKey(c.ced)+'|'+padronKey(c.nombre);
       if(seen[k]){dupes.push({exp:c.exp,nombre:c.nombre,fondoA:seen[k],fondoB:fd.nombre});}
       else seen[k]=fd.nombre;
-      rows.push({fecha:c.fecha,exp:c.exp,nombre:c.nombre,ced:c.ced,declarado:true,fondo:fd.nombre,fondoIdx:i+1,pvp:fd.pvp});
+      rows.push({fecha:c.fecha,exp:c.exp,nombre:c.nombre,ced:c.ced,declarado:true,fondo:fondoLblGob(fd,i),fondoIdx:i+1,pvp:fd.pvp});
     });
   });
   (d.restCasos||[]).forEach(function(c){
@@ -1350,7 +1367,7 @@ function renderDeclaradas(){
     '<tr><td style="width:60%">Cada servicio declarado está cargado a <b>un solo fondo</b> (sin duplicación entre fondos)</td><td class="r"><b style="color:'+(okUnico?'#0D7A4E':'#9d2f2c')+'">'+(okUnico?'✔ CONFORME':'✘ '+D.dupes.length+' DUPLICADO(S)')+'</b></td></tr>'+
     '<tr><td>Declarados ('+fmtNum(D.decl,0)+') + No declarados ('+fmtNum(D.noDecl,0)+') = Total del padrón ('+fmtNum(D.padTot,0)+')</td><td class="r"><b style="color:'+(okTotal?'#0D7A4E':'#9d2f2c')+'">'+(okTotal?'✔ CONFORME':'✘ DIFERENCIA')+'</b></td></tr>'+
     D.funds.map(function(fd,i){var cubre=fd.pvp>0?Math.floor(fd.fu/fd.pvp+1e-6):0;var ok=(fd.casos.length<=cubre);
-      return '<tr><td>Fondo N° '+(i+1)+' — '+esc(fd.nombre)+': '+fmtNum(fd.casos.length,0)+' servicio(s) declarado(s), cobertura máxima '+fmtNum(cubre,0)+' ($'+fmtNum(fd.fu,2)+' ÷ $'+fmtNum(fd.pvp,2)+')</td><td class="r"><b style="color:'+(ok?'#0D7A4E':'#9d2f2c')+'">'+(ok?'✔ CONFORME':'✘ EXCEDE')+'</b></td></tr>';}).join('')+
+      return '<tr><td>'+esc(fondoLblGob(fd,i))+': '+fmtNum(fd.casos.length,0)+' servicio(s) declarado(s), cobertura máxima '+fmtNum(cubre,0)+' ($'+fmtNum(fd.fu,2)+' ÷ $'+fmtNum(fd.pvp,2)+')</td><td class="r"><b style="color:'+(ok?'#0D7A4E':'#9d2f2c')+'">'+(ok?'✔ CONFORME':'✘ EXCEDE')+'</b></td></tr>';}).join('')+
     '</tbody></table>';
   if(D.dupes.length){h+='<div class="ecnote" style="margin-top:10px;border-color:#9d2f2c">Casos detectados en más de un fondo: '+D.dupes.map(function(x){return esc(x.exp)+' ('+esc(x.fondoA)+' / '+esc(x.fondoB)+')';}).join(' · ')+'</div>';}
   else{h+='<div class="ecnote" style="margin-top:10px">La asignación es <b>secuencial y excluyente</b>: los casos se ordenan por fecha de recepción y cada fondo toma un tramo consecutivo (Fondo N° 1 los primeros, Fondo N° 2 los siguientes). Por construcción un mismo difunto <b>no puede</b> pertenecer a dos fondos, y esta verificación lo comprueba caso por caso en cada carga.</div>';}
@@ -1359,7 +1376,7 @@ function renderDeclaradas(){
   var fRows=D.rows.map(function(r,i){
     return '<tr><td class="c num">'+(i+1)+'</td><td class="num">'+(r.fecha?fmtDate(r.fecha):'—')+'</td><td class="num">'+esc(r.exp||'—')+'</td><td>'+esc(r.nombre||'—')+'</td><td class="num">'+esc(r.ced||'—')+'</td>'+
       '<td>'+(r.declarado?'<span style="font-weight:700;color:#0D7A4E">Declarado</span>':'<span style="font-weight:700;color:#B07A00">No declarado</span>')+'</td>'+
-      '<td>'+(r.declarado?('<b>Fondo N° '+r.fondoIdx+'</b> — '+esc(r.fondo)):'<span style="color:var(--slate)">—</span>')+'</td>'+
+      '<td>'+(r.declarado?('<b>'+esc(r.fondo)+'</b>'):'<span style="color:var(--slate)">—</span>')+'</td>'+
       '<td class="r num">'+(r.declarado?('$'+fmtNum(r.pvp,2)):'—')+'</td></tr>';
   }).join('');
   h+='<div class="panel"><div class="ph"><h3>Detalle de servicios declarados y no declarados</h3><span style="color:var(--slate);font-size:11.5px">Orden cronológico por fecha de recepción · '+fmtNum(D.total,0)+' caso(s)</span></div><div class="pb" style="padding:0"><div class="tablewrap" style="border:none;box-shadow:none;max-height:520px;overflow:auto"><table class="data" id="tbl_declaradas"><thead><tr><th class="c">#</th><th>Fecha recepción</th><th>Expediente</th><th>Difunto</th><th>Cédula</th><th>Estatus</th><th>Fondo con cargo</th><th class="r">Tarifa</th></tr></thead><tbody>'+(fRows||'<tr><td colspan="8"><div class="empty" style="padding:20px"><div class="em-t">Sin padrón cargado</div></div></td></tr>')+'</tbody></table></div></div></div>';
@@ -1708,16 +1725,16 @@ function renderCtasGob(){
     '<button class="btn'+(_sub==='declaradas'?' gold':'')+'" onclick="ctasSub(\'declaradas\')">Servicios declarados</button>'+
   '</div>';
   if(_sub==='declaradas'){host.innerHTML=nav+'<div style="display:flex;justify-content:flex-end;margin-bottom:14px;gap:8px"><button class="btn gold" onclick="exportDeclaradasExcel()">⬇ Exportar (Excel)</button><button class="btn ghost sm" onclick="descargarDeclaradasGob()">🖨 Imprimir (PDF)</button></div>'+renderDeclaradas();return;}
-  if(_sub==='relacion'){host.innerHTML=nav+'<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn gold" onclick="exportRelacionExcel()">⬇ Exportar relación (Excel)</button><button class="btn ghost sm" onclick="descargarRelacionGob()">🖨 Imprimir relación (PDF)</button></div>'+ctasRelacionHtml();return;}
+  if(_sub==='relacion'){host.innerHTML=nav+'<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn gold" onclick="exportRelacionExcel()">⬇ Exportar relación (Excel)</button><button class="btn ghost sm" onclick="openRelPrint()">🖨 Imprimir relación (PDF)</button></div>'+ctasRelacionHtml();return;}
   var d=ctasRelacionData();
   var totFondos=0,totCancel=0,totCasos=0,totSaldo=0;
   var totFondosBs=0,totCancelBs=0,totSaldoBs=0;
-  var frows=d.funds.map(function(fd){
+  var frows=d.funds.map(function(fd,_fi){
     var tr=Number(fd.tasa)||0;
     totFondos+=fd.fu;totCancel+=fd.usado;totCasos+=fd.casos.length;totSaldo+=fd.saldo;
     totFondosBs+=fd.fu*tr;totCancelBs+=fd.usado*tr;totSaldoBs+=fd.saldo*tr;
     var bsu=function(usd,col){return '<td class="r num"><div'+(col?' style="color:'+col+'"':'')+'>'+fmtBs(n2(usd*tr))+'</div><div style="font-size:9.5px;color:#8a84a0;font-weight:400">$'+fmtNum(usd,2)+'</div></td>';};
-    return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'<div style="font-size:9.5px;color:#8a84a0;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r num">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';
+    return '<tr><td style="font-weight:700">'+esc(fondoLblGob(fd,_fi))+'<div style="font-size:9.5px;color:#8a84a0;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r num">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';
   }).join('');
   totFondos=n2(totFondos);totCancel=n2(totCancel);totSaldo=n2(totSaldo);totCasos=Math.round(totCasos);totFondosBs=n2(totFondosBs);totCancelBs=n2(totCancelBs);totSaldoBs=n2(totSaldoBs);
   var padTot=padron.length;
@@ -1771,12 +1788,12 @@ function ctasRelacionData(){
 function ctasRelacionHtml(){
   var d=ctasRelacionData();
   var h='<div style="font-size:12.5px;color:var(--slate);margin-bottom:18px;line-height:1.55">Relación controlada en <b>dólares</b>: cada fondo paga solo los <b>servicios completos de asistencia funeraria integral</b> que su monto alcanza al PVP acordado (no se paga medio servicio ni se sobregira). El sobrante queda como <b>saldo a favor del fondo</b>. Los casos entran en orden de fecha y <b>ningún fallecido se repite</b> entre fondos.</div>';
-  d.funds.forEach(function(fd){
+  d.funds.forEach(function(fd,_fi){
     var det=fd.casos.map(function(c,i){return '<tr><td class="c num">'+(i+1)+'</td><td class="num">'+fmtDate(c.fecha)+'</td><td class="num">'+esc(c.exp)+'</td><td>'+esc(c.nombre)+'</td><td class="num">'+esc(c.ced)+'</td></tr>';}).join('');
     if(!det)det='<tr><td colspan="5" style="color:var(--slate);text-align:center;padding:14px">Este fondo aún no alcanza para pagar un servicio completo.</td></tr>';
     var cell=function(k,v,bg,cl){return '<div style="background:'+(bg||'#faf9fd')+';padding:12px 14px"><div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:'+(cl||'var(--slate)')+'">'+k+'</div><div class="num" style="font-size:15px;font-weight:800;margin-top:3px'+(cl?';color:'+cl:'')+'">'+v+'</div></div>';};
     h+='<div style="background:#fff;border:1px solid var(--line);border-radius:15px;overflow:hidden;margin-bottom:20px;box-shadow:0 12px 30px -22px rgba(58,29,110,.3)">'+
-      '<div style="background:linear-gradient(135deg,#3A1D6E,#4B2D8F);color:#fff;padding:15px 20px"><div style="font-size:15px;font-weight:800">'+esc(fd.nombre)+' · Relación de asistencia funeraria integral con cargo al fondo</div><div style="font-size:11.5px;opacity:.8;margin-top:2px">Gobernación del Estado La Guaira · pago al PVP acordado</div></div>'+
+      '<div style="background:linear-gradient(135deg,#3A1D6E,#4B2D8F);color:#fff;padding:15px 20px"><div style="font-size:15px;font-weight:800">'+esc(fondoLblGob(fd,_fi))+' · Relación de asistencia funeraria integral con cargo al fondo</div><div style="font-size:11.5px;opacity:.8;margin-top:2px">Gobernación del Estado La Guaira · pago al PVP acordado</div></div>'+
       '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line-2)">'+
         cell('Fondos recibidos',fmtUsd(fd.fu))+cell('PVP por caso',fmtUsd(fd.pvp))+cell('Servicios atendidos',fmtNum(fd.casos.length,0),'#faf9fd','#0D7A4E')+cell('Monto usado',fmtUsd(fd.usado))+cell('Saldo a favor',fmtUsd(fd.saldo),'#e4f4f2','#0e9488')+
       '</div>'+
@@ -1836,8 +1853,8 @@ function numeroALetras(num){
   if(r>0)out+=tres(r);
   return out.replace(/\s+/g,' ').trim();
 }
-function generarReciboFondo(id){
-  var x=ingresos.find(function(i){return i.id===id;});if(!x){toast('Aporte no encontrado');return;}
+function generarReciboFondo(id,_ret){
+  var x=ingresos.find(function(i){return i.id===id;});if(!x){if(!_ret)toast('Aporte no encontrado');return _ret?'':undefined;}
   var b=ingBreak(x);
   var fid=(typeof fondoDeReg==='function')?fondoDeReg(x,'fecha'):(fondos[0]&&fondos[0].id);
   var tarifa=n2(precioGobDe(fid));
@@ -1903,6 +1920,7 @@ function generarReciboFondo(id){
   '<div class="firmas"><div class="fm"><b>Por Seguros La Fe, C.A.</b>Eduardo José Vallés — Presidente<br>Emisor / Receptor de fondos</div><div class="fm"><b>Por la Gobernación del Edo. La Guaira</b>Nombre y cargo: ____________________<br>Ente contratante / Autoriza</div></div>'+
   '<div class="foot">Seguros La Fe, C.A. · RIF J-000467382 · Organización Vallés · Documento de control interno del Fondo para Gestión de Asistencia Funeraria Integral</div>'+
   '</body></html>';
+  if(_ret)return doc;
   try{var blob=new Blob([doc],{type:'text/html;charset=utf-8'});downloadBlob(blob,'Recibo_Fondo_'+recNo.replace(/[^A-Za-z0-9]/g,'')+'_'+(x.fecha||today())+'.html');toast('Recibo generado — ábralo e imprima o guarde como PDF');}catch(e){toast('No se pudo generar el recibo');}
 }
 function descargarEstadoGob(){
@@ -1917,7 +1935,7 @@ function descargarEstadoGob(){
      Se valoran SIEMPRE a la tasa BCV del ultimo dia disponible. Los cancelados mantienen su tasa historica. */
   var pendTasa=bcvHoyRate();var pendFecha=bcvHoyFechaEf();
   var pendValBs=n2(pendVal*pendTasa);var netoPendBs=n2(netoPend*pendTasa);var prestadosBs=n2(totCancelBs+pendValBs);
-  var frows=d.funds.map(function(fd){var tr=Number(fd.tasa)||0;var bsu=function(u,col){return '<td class="r"'+(col?' style="color:'+col+'"':'')+'><div>'+fmtBs(n2(u*tr))+'</div><div style="font-size:9px;color:#000">$'+fmtNum(u,2)+'</div></td>';};return '<tr><td style="font-weight:700">'+esc(fd.nombre)+'<div style="font-size:9px;color:#000;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';}).join('');
+  var frows=d.funds.map(function(fd,_fi){var tr=Number(fd.tasa)||0;var bsu=function(u,col){return '<td class="r"'+(col?' style="color:'+col+'"':'')+'><div>'+fmtBs(n2(u*tr))+'</div><div style="font-size:9px;color:#000">$'+fmtNum(u,2)+'</div></td>';};return '<tr><td style="font-weight:700">'+esc(fondoLblGob(fd,_fi))+'<div style="font-size:9px;color:#000;font-weight:400">BCV '+fmtNum(tr,4)+'</div></td>'+bsu(fd.pvp)+'<td class="r">'+fmtNum(fd.casos.length,0)+'</td>'+bsu(fd.usado)+bsu(fd.fu)+bsu(fd.saldo,'#0e9488')+'</tr>';}).join('');
   var kpi=function(k,v,c){return '<div class="kpi"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+v+'</div></div>';};
   var rrow=function(l,v,c,bold){return '<tr class="'+(bold?'rbold':'')+'"><td>'+l+'</td><td class="r" style="color:'+(c||'#000')+'">'+v+'</td></tr>';};
   var doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Estado de Cuenta · Gobernación La Guaira</title>'+
@@ -1936,21 +1954,104 @@ function descargarEstadoGob(){
   '<table><thead><tr><th>Fondo</th><th class="r">PVP por caso</th><th class="r">Casos atendidos</th><th class="r">Servicios cancelados</th><th class="r">Fondos recibidos</th><th class="r">Saldo a favor</th></tr></thead><tbody>'+frows+'</tbody>'+
   '<tfoot><tr><td class="r">TOTAL</td><td></td><td class="r">'+fmtNum(totCasos,0)+'</td>'+'<td class="r"><div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#000">$'+fmtNum(totCancel,2)+'</div></td>'+'<td class="r"><div>'+fmtBs(totFondosBs)+'</div><div style="font-size:9px;color:#000">$'+fmtNum(totFondos,2)+'</div></td>'+'<td class="r" style="color:#0e9488"><div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#0e9488">$'+fmtNum(totSaldo,2)+'</div></td></tr></tfoot></table>'+
   '<div class="sect">Resumen de servicios (según padrón)</div>'+
-  '<div class="kpis">'+kpi('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón: '+fmtNum(totCasos,0)+' cancelados + '+fmtNum(pendCount,0)+' pendientes)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:11px;color:#000;font-weight:400">$'+fmtNum(prestados,2)+'</div>','#4B2D8F')+kpi('Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' casos pagados)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:11px;color:#000;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+kpi('Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:11px;color:#000;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00')+'</div>'+
+  '<div class="kpis">'+kpi('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón: '+fmtNum(totCasos,0)+' cancelados + '+fmtNum(pendCount,0)+' pendientes)',fmtUsd(prestados),'#4B2D8F')+kpi('Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' casos pagados)',fmtUsd(totCancel),'#0D7A4E')+kpi('Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)',fmtUsd(pendVal),'#B07A00')+'</div>'+
   '<div class="sect">Resumen de fondos</div>'+
   '<div class="resumen"><div class="rh">Resumen de fondos</div><table>'+
-    rrow('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón)','<div>'+fmtBs(prestadosBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(prestados,2)+'</div>')+
-    rrow('(−) Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' servicios)','<div>'+fmtBs(totCancelBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(totCancel,2)+'</div>','#0D7A4E')+
-    rrow('= Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)','<div>'+fmtBs(pendValBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(pendVal,2)+'</div>','#B07A00',true)+
-    rrow('(−) Saldo a favor del fondo','<div>'+fmtBs(totSaldoBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(totSaldo,2)+'</div>','#0e9488')+
-    rrow('= Servicios pendientes por pagar (neto)','<div>'+fmtBs(netoPendBs)+'</div><div style="font-size:9px;color:#000;font-weight:400">$'+fmtNum(netoPend,2)+'</div>','#9d2f2c',true)+
+    rrow('Total servicios prestados ('+fmtNum(padTot,0)+' según padrón)',fmtUsd(prestados))+
+    rrow('(−) Servicios cancelados por la Gobernación ('+fmtNum(totCasos,0)+' servicios)',fmtUsd(totCancel),'#0D7A4E')+
+    rrow('= Servicios pendientes por pagar ('+fmtNum(pendCount,0)+' servicios)',fmtUsd(pendVal),'#B07A00',true)+
+    rrow('(−) Saldo a favor del fondo',fmtUsd(totSaldo),'#0e9488')+
+    rrow('= Servicios pendientes por pagar (neto)',fmtUsd(netoPend),'#9d2f2c',true)+
   '</table></div>'+
-  '<div class="nota-bcv"><b>Nota:</b> el c\u00e1lculo en Bs. de los <b>servicios pendientes por pagar</b> y del <b>pendiente neto</b> est\u00e1 en base a la tasa de d\u00f3lares del <b>Banco Central de Venezuela al d\u00eda '+fmtDate(pendFecha)+'</b> (<b>Bs. '+fmtNum(pendTasa,4)+' por USD</b>), por tratarse de montos a\u00fan no cobrados. Los servicios ya cancelados conservan la tasa hist\u00f3rica del d\u00eda en que se recibi\u00f3 cada fondo.</div>'+
   '<div class="foot">Documento generado por el sistema Control de Asistencia Funeraria Integral La Guaira · Seguros La Fe, C.A.</div>'+
   '</body></html>';
   try{var blob=new Blob([doc],{type:'text/html;charset=utf-8'});downloadBlob(blob,'Estado_Cuenta_Gobernacion_'+today()+'.html');toast('Estado de cuenta descargado — ábralo e imprima o guarde como PDF');}catch(e){toast('No se pudo descargar');}
 }
-function descargarRelacionGob(){
+/* ===== FUSION RECIBO + RELACION =====
+   El recibo y la relacion comparten nombres de clase (.sect, .foot, .bar) con estilos distintos.
+   Para poder unirlos en un mismo documento se acota el CSS del recibo bajo un contenedor,
+   con un parser de llaves balanceadas (soporta @media/@page). */
+function _cssScope(css,pfx){
+  var out='',rest=String(css||''),i=0;
+  function scopeRules(txt){
+    var r='',pos=0;
+    while(pos<txt.length){
+      var ob=txt.indexOf('{',pos);
+      if(ob<0){r+=txt.slice(pos);break;}
+      var sel=txt.slice(pos,ob);
+      var d=1,j=ob+1;
+      while(j<txt.length&&d>0){if(txt[j]==='{')d++;else if(txt[j]==='}')d--;j++;}
+      var body=txt.slice(ob+1,j-1);
+      var ns=sel.split(',').map(function(x){
+        x=x.trim();if(!x)return '';
+        if(x.charAt(0)==='@')return x;
+        if(/^(html|body|\*)$/i.test(x))return pfx;
+        if(/^(html|body)\s+/i.test(x))return pfx+' '+x.replace(/^(html|body)\s+/i,'');
+        return pfx+' '+x;
+      }).filter(Boolean).join(',');
+      r+=ns+'{'+body+'}';
+      pos=j;
+    }
+    return r;
+  }
+  while(i<rest.length){
+    var at=rest.indexOf('@',i);
+    if(at<0){out+=scopeRules(rest.slice(i));break;}
+    out+=scopeRules(rest.slice(i,at));
+    var ob=rest.indexOf('{',at);
+    if(ob<0){out+=rest.slice(at);break;}
+    var head=rest.slice(at,ob),d=1,j=ob+1;
+    while(j<rest.length&&d>0){if(rest[j]==='{')d++;else if(rest[j]==='}')d--;j++;}
+    var inner=rest.slice(ob+1,j-1);
+    if(/^@page/i.test(head)){/* @page es de documento: se descarta al fusionar */}
+    else{out+=head+'{'+scopeRules(inner)+'}';}
+    i=j;
+  }
+  return out;
+}
+function _reciboPartes(ingId){
+  var doc=generarReciboFondo(ingId,true);
+  if(!doc)return null;
+  var mS=doc.match(/<style>([\s\S]*?)<\/style>/);
+  var mB=doc.match(/<body>([\s\S]*?)<\/body>/);
+  if(!mS||!mB)return null;
+  var body=mB[1].replace(/<div class="bar noprint">[\s\S]*?<\/div>/,'');
+  return {css:_cssScope(mS[1],'.recdoc'),body:body};
+}
+function ingresosDeFondo(fid){
+  return ingresos.filter(function(x){return fondoDeReg(x,'fecha')===fid;})
+                 .sort(function(a,b){return (a.fecha||'')<(b.fecha||'')?-1:1;});
+}
+function openRelPrint(){
+  var sel=document.getElementById('relPrintSel');if(!sel)return;
+  var h='';fondos.forEach(function(f,i){h+='<option value="'+i+'">'+esc(fondoLblGob(f,i))+'</option>';});
+  h+='<option value="pend">Corte de servicios pendientes por reportar</option>';
+  h+='<option value="todas">Todas las relaciones (documento único)</option>';
+  sel.innerHTML=h;sel.value='0';
+  var c=document.getElementById('relPrintRec');if(c)c.checked=false;
+  relPrintToggle();
+  document.getElementById('modalRelPrint').classList.add('open');
+}
+function relPrintToggle(){
+  var v=(document.getElementById('relPrintSel')||{}).value||'';
+  var wrap=document.getElementById('relPrintRecWrap'),nota=document.getElementById('relPrintRecNota'),chk=document.getElementById('relPrintRec');
+  var esFondo=(v!=='todas'&&v!=='pend');
+  if(wrap)wrap.style.display=esFondo?'flex':'none';
+  if(!esFondo&&chk)chk.checked=false;
+  if(nota){
+    if(!esFondo){nota.textContent='';return;}
+    var f=fondos[Number(v)];var ings=f?ingresosDeFondo(f.id):[];
+    nota.innerHTML=ings.length?('Se anexará '+(ings.length>1?(ings.length+' recibos'):'1 recibo')+' de este fondo: '+ings.map(function(x){return fmtDate(x.fecha);}).join(', ')+'.'):'<span style="color:var(--warn)">Este fondo no tiene abonos registrados: no hay recibo que anexar.</span>';
+  }
+}
+function relPrintGo(){
+  var v=(document.getElementById('relPrintSel')||{}).value||'todas';
+  var c=!!(document.getElementById('relPrintRec')||{}).checked;
+  closeModal('modalRelPrint');
+  descargarRelacionGob({sel:v,conRecibo:c});
+}
+function descargarRelacionGob(opt){
+  opt=opt||{};var sel=(opt.sel==null?'todas':String(opt.sel)),conRec=!!opt.conRecibo;
   var d=ctasRelacionData();
   var rango=d.rango?(fmtDate(d.rango[0])+' \u2014 '+fmtDate(d.rango[1])):'\u2014';
   var casoRows=function(casos){return casos.map(function(c,i){return '<tr><td class="c num">'+(i+1)+'</td><td class="num">'+(c.fecha?fmtDate(c.fecha):'\u2014')+'</td><td class="num">'+esc(c.exp)+'</td><td>'+esc(c.nombre||'\u2014')+'</td><td class="num">'+esc(c.ced||'\u2014')+'</td></tr>';}).join('');};
@@ -1958,12 +2059,14 @@ function descargarRelacionGob(){
   var thead='<thead><tr><th class="c">#</th><th>Fecha recepci\u00f3n</th><th>Expediente</th><th>Beneficiario (fallecido)</th><th>C\u00e9dula</th></tr></thead>';
   var secciones='';
   d.funds.forEach(function(fd,idx){
+    if(sel!=='todas'&&String(idx)!==sel)return;
     secciones+='<section class="page">'+miniHead+
       '<div class="sect">Relaci\u00f3n de Asistencia Funeraria Integral con cargo al Fondo N\u00b0 '+(idx+1)+'</div>'+
       '<div class="fdetail"><div class="fd-t">Detalle del Fondo</div><table class="fdt"><tbody>'+'<tr><td>Fondos recibidos</td><td>'+(fd.principal?'Funeraria Vall\u00e9s':'Seguros La Fe')+' &nbsp;\u00b7&nbsp; Bs. '+fmtNum(fd.fbs,2)+' / BCV $'+fmtNum(fd.fu,2)+' <span style="color:#000">(tasa BCV d\u00eda de pago: '+fmtNum(fd.tasa,4)+')</span></td></tr>'+'<tr><td>Total servicios cargados al fondo</td><td><b>'+fmtNum(fd.casos.length,0)+'</b></td></tr>'+'<tr><td>Costo integral por caso (tarifa de cobro)</td><td><b>$'+fmtNum(fd.pvp,2)+'</b></td></tr>'+'<tr><td>Monto total de los servicios</td><td><b>'+fmtNum(fd.casos.length,0)+' \u00d7 $'+fmtNum(fd.pvp,2)+' = $'+fmtNum(fd.usado,2)+'</b></td></tr>'+'<tr><td>Saldo a favor del fondo</td><td><b style="color:#0e9488">$'+fmtNum(fd.saldo,2)+'</b></td></tr>'+'</tbody></table></div>'+
       '<table>'+thead+'<tbody>'+(fd.casos.length?casoRows(fd.casos):'<tr><td colspan="5" style="text-align:center;padding:16px;color:#000">Sin servicios asignados a este fondo</td></tr>')+'</tbody></table>'+
       '</section>';
   });
+  if(sel==='todas'||sel==='pend')
   secciones+='<section class="page last">'+miniHead+
     '<div class="sect">Corte de Servicios Pendientes por Reportar</div>'+
     '<div class="fmeta">Servicios pendientes (padr\u00f3n \u2212 reportados): <b>'+fmtNum(d.restCasos.length,0)+'</b></div>'+
@@ -1977,13 +2080,21 @@ function descargarRelacionGob(){
   '.bar{text-align:center;margin-bottom:14px}.bar button{font-size:13px;font-weight:bold;background:#4B2D8F;color:#fff;border:none;border-radius:8px;padding:10px 22px;cursor:pointer}'+
   '.page{page-break-after:always}.page.last{page-break-after:auto}'+
   '@media print{body{padding:8px 12px}.noprint{display:none}.page{page-break-after:always}}</style>';
-  var doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Relaci\u00f3n de Asistencia Funeraria Integral \u00b7 Gobernaci\u00f3n La Guaira</title>'+st+'</head><body>'+
+  /* Recibo del fondo como PRIMERA hoja (opcional): su CSS va acotado bajo .recdoc para no chocar. */
+  var recCss='',recHtml='';
+  if(conRec&&sel!=='todas'&&sel!=='pend'&&d.funds[Number(sel)]){
+    var _fid=(fondos[Number(sel)]||{}).id;
+    var _ings=_fid?ingresosDeFondo(_fid):[];
+    _ings.forEach(function(x){var p=_reciboPartes(x.id);if(!p)return;if(!recCss)recCss=p.css;recHtml+='<div class="recdoc">'+p.body+'</div><div class="pgbreak"></div>';});
+  }
+  var titDoc=(sel==='todas')?'Relaci\u00f3n de Asistencia Funeraria Integral':((sel==='pend')?'Corte de Servicios Pendientes por Reportar':('Relaci\u00f3n \u00b7 '+fondoLblGob(fondos[Number(sel)]||{},Number(sel))));
+  var doc='<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>'+esc(titDoc)+' \u00b7 Gobernaci\u00f3n La Guaira</title>'+st+'<style>'+recCss+'.pgbreak{page-break-before:always;height:0}</style></head><body>'+
   '<div class="bar noprint"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>'+
   '<div class="fmeta noprint" style="text-align:center;margin-bottom:6px">Rango de fechas de recepci\u00f3n: <b>'+rango+'</b></div>'+
-  secciones+
+  recHtml+secciones+
   '<div class="foot">Documento generado por el sistema Control de Asistencia Funeraria Integral La Guaira \u00b7 Seguros La Fe, C.A.</div>'+
   '</body></html>';
-  try{var blob=new Blob([doc],{type:'text/html;charset=utf-8'});downloadBlob(blob,'Relacion_Asistencia_Funeraria_Integral_'+today()+'.html');toast('Relaci\u00f3n descargada \u2014 \u00e1brala e imprima o guarde como PDF');}catch(e){toast('No se pudo descargar');}
+  try{var blob=new Blob([doc],{type:'text/html;charset=utf-8'});downloadBlob(blob,(titDoc.replace(/[^A-Za-z0-9]+/g,'_'))+'_'+today()+'.html');toast('Relaci\u00f3n descargada \u2014 \u00e1brala e imprima o guarde como PDF');}catch(e){toast('No se pudo descargar');}
 }
 function exportRelacionExcel(){
   var d=ctasRelacionData();
